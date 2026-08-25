@@ -1,0 +1,27 @@
+# Go build files
+*.exe
+*.dll
+
+# Build directories
+bin/
+build/
+dist/
+
+# Go
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+
+# Local WinDroid data
+WinDroid/

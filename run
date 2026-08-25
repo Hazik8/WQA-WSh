@@ -1,0 +1,6 @@
+WinDroid Shell 0.2.0
+------------------------------
+Type 'help' for available commands.
+
+wsh [C:\WQA]> wsh [C:\WQA]> wsh [C:\WQA]> Command not found: stop
+wsh [C:\WQA]> Goodbye.
