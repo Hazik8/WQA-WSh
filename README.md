@@ -59,13 +59,29 @@ WQA
 
 WQA applications use the .wqa format.
 
-Example:
+## Examples
 
 Calculator.wqa
 
 WQA applications contain a manifest and application data that can be executed by the WQA runtime.
 
 Project status
+
+Example WQA programs are available in the `examples` directory.
+
+### Hello World
+
+examples/hello/main.wqa
+
+Calculator
+
+examples/calculator/main.wqa
+
+Conditions
+
+examples/conditions/main.wqa
+
+These examples demonstrate basic WQA output, variables, arithmetic and conditions.
 
 WQA and WSh are currently under active development.
 
@@ -100,6 +116,9 @@ WQA/
 │   ├── runtime/
 │   └── format/
 ├── examples/
+│   ├── calculator/
+│   ├── conditions/
+│   └── hello/
 ├── go.mod
 ├── README.md
 └── LICENSE

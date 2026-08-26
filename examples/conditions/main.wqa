@@ -1,0 +1,9 @@
+set score 100
+
+print "Checking score..."
+
+if score > 50
+    print "Winner!"
+endif
+
+exit
