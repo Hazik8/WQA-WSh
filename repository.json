@@ -1,0 +1,20 @@
+{
+  "apps": [
+    {
+      "name": "Calculator",
+      "id": "windroid.Calculator",
+      "version": "1.0.0",
+      "type": "wqa",
+      "download": "",
+      "sha256": ""
+    },
+    {
+      "name": "TestApp",
+      "id": "windroid.TestApp",
+      "version": "1.0.0",
+      "type": "exe",
+      "download": "",
+      "sha256": ""
+    }
+  ]
+}
