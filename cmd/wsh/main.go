@@ -7,7 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"windroid/wqa/internal/installer"
 	"windroid/wqa/internal/packages"
+	"windroid/wqa/internal/repository"
 )
 
 const version = "0.4.0"
@@ -101,9 +103,7 @@ func handleCommand(input string) bool {
 			break
 		}
 
-		target := strings.Join(args, " ")
-
-		if err := packages.Install(target); err != nil {
+		if err := installApplication(args[0]); err != nil {
 			fmt.Println("[ERROR]", err)
 		}
 
@@ -133,18 +133,7 @@ func handleCommand(input string) bool {
 		}
 
 	case "search":
-		if len(args) == 0 {
-			if err := packages.Search(""); err != nil {
-				fmt.Println("[ERROR]", err)
-			}
-			break
-		}
-
-		query := strings.Join(args, " ")
-
-		if err := packages.Search(query); err != nil {
-			fmt.Println("[ERROR]", err)
-		}
+		searchRepository(args)
 
 	default:
 		runExternal(command, args)
@@ -526,4 +515,165 @@ func runEXEFile(target string) {
 	}
 
 	fmt.Println("[OK] Process started")
+}
+
+func searchRepository(args []string) {
+	query := strings.Join(args, " ")
+
+	repo, err := repository.Load("repository.json")
+
+	if err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	results := repo.Search(query)
+
+	fmt.Println("WinDroid Repository")
+	fmt.Println("-------------------")
+
+	if len(results) == 0 {
+		fmt.Println("No applications found")
+		return
+	}
+
+	for _, app := range results {
+		fmt.Printf(
+			"%-24s %-12s %s\n",
+			app.Name,
+			app.Type,
+			app.Version,
+		)
+	}
+}
+
+func showAppInfo(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: info <app>")
+		return
+	}
+
+	query := strings.Join(args, " ")
+
+	// Сначала ищем среди установленных приложений.
+	if err := packages.Info(query); err == nil {
+		return
+	}
+
+	// Если приложение не установлено,
+	// ищем его в репозитории.
+	repo, err := repository.Load("repository.json")
+
+	if err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	app := repo.Find(query)
+
+	if app == nil {
+		fmt.Println("[ERROR] Application not found:", query)
+		return
+	}
+
+	fmt.Println("Application Information")
+	fmt.Println("-----------------------")
+	fmt.Println("Name:", app.Name)
+	fmt.Println("ID:", app.ID)
+	fmt.Println("Version:", app.Version)
+	fmt.Println("Type:", app.Type)
+
+	if app.Download != "" {
+		fmt.Println("Download:", app.Download)
+	} else {
+		fmt.Println("Download: not available")
+	}
+}
+
+func installApplication(target string) error {
+	ext := strings.ToLower(filepath.Ext(target))
+
+	// Локальная установка WQA или EXE.
+	if ext == ".wqa" || ext == ".exe" {
+		return packages.Install(target)
+	}
+
+	// Загружаем каталог репозитория.
+	repo, err := repository.Load("repository.json")
+	if err != nil {
+		return fmt.Errorf(
+			"cannot load repository: %w",
+			err,
+		)
+	}
+
+	app := repo.Find(target)
+
+	if app == nil {
+		return fmt.Errorf(
+			"application not found: %s",
+			target,
+		)
+	}
+
+	fmt.Println("[INFO] Found:", app.Name)
+	fmt.Println("[INFO] Version:", app.Version)
+	fmt.Println("[INFO] Type:", app.Type)
+
+	if app.Download == "" {
+		return fmt.Errorf(
+			"application has no download URL",
+		)
+	}
+
+	// Пока онлайн-установка поддерживает WQA.
+	if strings.ToLower(app.Type) != "wqa" {
+		return fmt.Errorf(
+			"unsupported repository package type: %s",
+			app.Type,
+		)
+	}
+
+	tempDir, err := os.MkdirTemp("", "wqa-install-*")
+	if err != nil {
+		return err
+	}
+
+	defer os.RemoveAll(tempDir)
+
+	packagePath := filepath.Join(
+		tempDir,
+		app.Name+".wqa",
+	)
+
+	fmt.Println("[INFO] Downloading...")
+
+	if err := repository.Download(
+		app,
+		packagePath,
+	); err != nil {
+		return err
+	}
+
+	fmt.Println("[INFO] Verifying SHA-256...")
+
+	if err := repository.VerifySHA256(
+		packagePath,
+		app.SHA256,
+	); err != nil {
+		return err
+	}
+
+	fmt.Println("[OK] SHA-256 verified")
+
+	fmt.Println("[INFO] Installing...")
+
+	if err := installer.Install(packagePath); err != nil {
+		return fmt.Errorf(
+			"installation failed: %w",
+			err,
+		)
+	}
+
+	return nil
 }

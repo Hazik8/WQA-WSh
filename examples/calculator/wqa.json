@@ -1,0 +1,12 @@
+{
+  "wqa": "1.0",
+  "id": "windroid.Calculator",
+  "name": "Calculator",
+  "version": "1.0.0",
+  "publisher": "WinDroid",
+  "runtime": "WQBC",
+  "entry": "main.wqa",
+  "architecture": [
+    "x86_64"
+  ]
+}

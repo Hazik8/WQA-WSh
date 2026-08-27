@@ -52,7 +52,19 @@ func main() {
 
 	case "build":
 
-		err := builder.Build(".")
+		project := "."
+
+		if len(os.Args) >= 3 {
+			project = os.Args[2]
+		}
+
+		project, err := filepath.Abs(project)
+		if err != nil {
+			fmt.Println("Ошибка:", err)
+			return
+		}
+
+		err = builder.Build(project)
 
 		if err != nil {
 			fmt.Println("Ошибка:", err)

@@ -5,16 +5,8 @@
       "id": "windroid.Calculator",
       "version": "1.0.0",
       "type": "wqa",
-      "download": "",
-      "sha256": ""
-    },
-    {
-      "name": "TestApp",
-      "id": "windroid.TestApp",
-      "version": "1.0.0",
-      "type": "exe",
-      "download": "",
-      "sha256": ""
+      "download": "https://github.com/Hazik8/WQA-WSh/releases/download/v1.0.0/Calculator.wqa",
+      "sha256": "08EE1B55BBA9C7F927335DA37B1E37F8065880CEB3D204644353176F1CD9F157"
     }
   ]
 }
