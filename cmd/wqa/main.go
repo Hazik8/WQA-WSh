@@ -12,6 +12,7 @@ import (
 	"windroid/wqa/internal/remove"
 	"windroid/wqa/internal/run"
 	"windroid/wqa/internal/setup"
+	"windroid/wqa/internal/updater"
 	"windroid/wqa/internal/verify"
 )
 
@@ -109,6 +110,19 @@ func main() {
 		}
 
 		err := installer.Install(os.Args[2])
+
+		if err != nil {
+			fmt.Println("Ошибка:", err)
+		}
+
+	case "update":
+
+		if len(os.Args) < 3 {
+			fmt.Println("Использование: wqa update <app>")
+			return
+		}
+
+		err := updater.Update(os.Args[2])
 
 		if err != nil {
 			fmt.Println("Ошибка:", err)
