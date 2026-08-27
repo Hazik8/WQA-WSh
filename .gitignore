@@ -1,6 +1,7 @@
 # Go build files
 *.exe
 *.dll
+*.bat
 
 # Build directories
 bin/
