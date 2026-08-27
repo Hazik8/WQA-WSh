@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"windroid/wqa/internal/installer"
+	"windroid/wqa/internal/paths"
 	"windroid/wqa/internal/repository"
 )
 
@@ -17,8 +18,10 @@ func Update(name string) error {
 		return fmt.Errorf("application name is required")
 	}
 
-	// Загружаем репозиторий.
-	repo, err := repository.Load("repository.json")
+	repositoryPath := paths.GetRepositoryPath()
+
+	repo, err := repository.Load(repositoryPath)
+
 	if err != nil {
 		return fmt.Errorf(
 			"cannot load repository: %w",
@@ -26,7 +29,6 @@ func Update(name string) error {
 		)
 	}
 
-	// Ищем приложение по имени или ID.
 	app := repo.Find(name)
 
 	if app == nil {
@@ -46,7 +48,6 @@ func Update(name string) error {
 		)
 	}
 
-	// Сейчас обновляем только WQA.
 	if !strings.EqualFold(app.Type, "wqa") {
 		return fmt.Errorf(
 			"unsupported repository package type: %s",
@@ -54,11 +55,11 @@ func Update(name string) error {
 		)
 	}
 
-	// Создаём временную папку.
 	tempDir, err := os.MkdirTemp(
 		"",
 		"wqa-update-*",
 	)
+
 	if err != nil {
 		return fmt.Errorf(
 			"cannot create temporary directory: %w",
@@ -73,7 +74,6 @@ func Update(name string) error {
 		app.Name+".wqa",
 	)
 
-	// Загружаем новую версию.
 	fmt.Println("[INFO] Downloading...")
 
 	if err := repository.Download(
@@ -83,7 +83,6 @@ func Update(name string) error {
 		return err
 	}
 
-	// Проверяем SHA-256.
 	fmt.Println("[INFO] Verifying SHA-256...")
 
 	if err := repository.VerifySHA256(
@@ -95,7 +94,6 @@ func Update(name string) error {
 
 	fmt.Println("[OK] SHA-256 verified")
 
-	// Устанавливаем новую версию.
 	fmt.Println("[INFO] Updating...")
 
 	if err := installer.Install(packagePath); err != nil {

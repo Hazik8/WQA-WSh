@@ -2,17 +2,17 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"windroid/wqa/internal/format"
 	"windroid/wqa/internal/installer"
 	"windroid/wqa/internal/packages"
+	"windroid/wqa/internal/paths"
 	"windroid/wqa/internal/repository"
+	"windroid/wqa/internal/updater"
 )
 
 const version = "0.4.0"
@@ -116,7 +116,7 @@ func handleCommand(input string) bool {
 			break
 		}
 
-		if err := updateApplication(args[0]); err != nil {
+		if err := updater.Update(args[0]); err != nil {
 			fmt.Println("[ERROR]", err)
 		}
 
@@ -176,7 +176,7 @@ File commands:
       Show application information
 
   search [name]
-	  Search WQA application repository
+      Search WQA application repository
 
 WQA:
 
@@ -188,6 +188,7 @@ WQA:
         wqa install Calculator.wqa
         wqa run Calculator.wqa
         wqa info Calculator.wqa
+        wqa update Calculator
 
 Shell:
 
@@ -209,7 +210,7 @@ Package commands:
       Install a supported package
 
   update <app>
-      Update an installed WQA application
+      Update an application from the repository
 
   remove <app>
       Remove an installed application
@@ -218,12 +219,7 @@ Package commands:
       List installed applications
 
   run <program.exe>
-      Run a Windows EXE
-
-  update <app>
-      Update an installed WQA application
- 
- `)
+      Run a Windows EXE`)
 }
 
 func clearScreen() {
@@ -347,7 +343,6 @@ func runWQA(args []string) {
 }
 
 func findWQA() (string, error) {
-	// 1. Ищем wqa.exe рядом с wsh.exe.
 	exe, err := os.Executable()
 
 	if err == nil {
@@ -360,7 +355,6 @@ func findWQA() (string, error) {
 		}
 	}
 
-	// 2. Ищем через PATH.
 	path, err := exec.LookPath("wqa.exe")
 
 	if err == nil {
@@ -389,7 +383,6 @@ func runExternal(command string, args []string) {
 		return
 	}
 
-	// Передаём неизвестную команду Windows CMD.
 	all := append([]string{command}, args...)
 
 	cmd := exec.Command(
@@ -414,10 +407,6 @@ func runApplication(args []string) {
 
 	target := strings.Join(args, " ")
 
-	// --------------------------------
-	// 1. WQA
-	// --------------------------------
-
 	if strings.HasSuffix(
 		strings.ToLower(target),
 		".wqa",
@@ -432,10 +421,6 @@ func runApplication(args []string) {
 		return
 	}
 
-	// --------------------------------
-	// 2. Точный путь
-	// --------------------------------
-
 	if strings.Contains(target, `\`) ||
 		strings.Contains(target, `/`) {
 
@@ -444,10 +429,6 @@ func runApplication(args []string) {
 			return
 		}
 	}
-
-	// --------------------------------
-	// 3. EXE в текущей папке
-	// --------------------------------
 
 	localPath := filepath.Join(".", target)
 
@@ -464,10 +445,6 @@ func runApplication(args []string) {
 			return
 		}
 	}
-
-	// --------------------------------
-	// 4. Установленное приложение
-	// --------------------------------
 
 	appName := strings.TrimSuffix(
 		target,
@@ -486,10 +463,6 @@ func runApplication(args []string) {
 		return
 	}
 
-	// --------------------------------
-	// 5. Windows PATH
-	// --------------------------------
-
 	if resolved, err := exec.LookPath(target); err == nil {
 		runEXEFile(resolved)
 		return
@@ -499,15 +472,11 @@ func runApplication(args []string) {
 }
 
 func runEXEFile(target string) {
-	// Если это просто имя программы,
-	// ищем её через Windows PATH.
 	resolved, err := exec.LookPath(target)
 
 	if err == nil {
 		target = resolved
 	} else {
-		// Если это путь к конкретному EXE,
-		// проверяем его напрямую.
 		if _, statErr := os.Stat(target); statErr != nil {
 			fmt.Println("[ERROR]", statErr)
 			return
@@ -532,13 +501,9 @@ func runEXEFile(target string) {
 func searchRepository(args []string) {
 	query := strings.Join(args, " ")
 
-	repoPath, err := findRepository()
-	if err != nil {
-		fmt.Println("[ERROR]", err)
-		return
-	}
-
-	repo, err := repository.Load(repoPath)
+	repo, err := repository.Load(
+		paths.GetRepositoryPath(),
+	)
 
 	if err != nil {
 		fmt.Println("[ERROR]", err)
@@ -573,20 +538,13 @@ func showAppInfo(args []string) {
 
 	query := strings.Join(args, " ")
 
-	// Сначала ищем среди установленных приложений.
 	if err := packages.Info(query); err == nil {
 		return
 	}
 
-	// Если приложение не установлено,
-	// ищем его в репозитории.
-	repoPath, err := findRepository()
-	if err != nil {
-		fmt.Println("[ERROR]", err)
-		return
-	}
-
-	repo, err := repository.Load(repoPath)
+	repo, err := repository.Load(
+		paths.GetRepositoryPath(),
+	)
 
 	if err != nil {
 		fmt.Println("[ERROR]", err)
@@ -617,18 +575,14 @@ func showAppInfo(args []string) {
 func installApplication(target string) error {
 	ext := strings.ToLower(filepath.Ext(target))
 
-	// Локальная установка WQA или EXE.
 	if ext == ".wqa" || ext == ".exe" {
 		return packages.Install(target)
 	}
 
-	// Загружаем каталог репозитория.
-	repoPath, err := findRepository()
-	if err != nil {
-		return err
-	}
+	repo, err := repository.Load(
+		paths.GetRepositoryPath(),
+	)
 
-	repo, err := repository.Load(repoPath)
 	if err != nil {
 		return fmt.Errorf(
 			"cannot load repository: %w",
@@ -655,15 +609,18 @@ func installApplication(target string) error {
 		)
 	}
 
-	// Пока онлайн-установка поддерживает WQA.
-	if strings.ToLower(app.Type) != "wqa" {
+	if !strings.EqualFold(app.Type, "wqa") {
 		return fmt.Errorf(
 			"unsupported repository package type: %s",
 			app.Type,
 		)
 	}
 
-	tempDir, err := os.MkdirTemp("", "wqa-install-*")
+	tempDir, err := os.MkdirTemp(
+		"",
+		"wqa-install-*",
+	)
+
 	if err != nil {
 		return err
 	}
@@ -705,172 +662,4 @@ func installApplication(target string) error {
 	}
 
 	return nil
-}
-
-func updateApplication(target string) error {
-	repo, err := repository.Load("repository.json")
-	if err != nil {
-		return fmt.Errorf("cannot load repository: %w", err)
-	}
-
-	app := repo.Find(target)
-	if app == nil {
-		return fmt.Errorf("application not found: %s", target)
-	}
-
-	if strings.ToLower(app.Type) != "wqa" {
-		return fmt.Errorf(
-			"unsupported repository package type: %s",
-			app.Type,
-		)
-	}
-
-	if app.Download == "" {
-		return fmt.Errorf("application has no download URL")
-	}
-
-	installedDir := filepath.Join(
-		packages.AppsDir,
-		app.ID,
-	)
-
-	installedPackage := filepath.Join(
-		installedDir,
-		"package.wqa",
-	)
-
-	if _, err := os.Stat(installedPackage); err != nil {
-		return fmt.Errorf(
-			"application is not installed: %s",
-			app.Name,
-		)
-	}
-
-	installedVersion, err := readWQAVersion(installedPackage)
-	if err != nil {
-		return fmt.Errorf(
-			"cannot read installed version: %w",
-			err,
-		)
-	}
-
-	fmt.Println("[INFO] Installed version:", installedVersion)
-	fmt.Println("[INFO] Repository version:", app.Version)
-
-	if installedVersion == app.Version {
-		fmt.Println("[OK]", app.Name, "is up to date")
-		return nil
-	}
-
-	fmt.Println("[INFO] Update available")
-
-	tempDir, err := os.MkdirTemp("", "wqa-update-*")
-	if err != nil {
-		return err
-	}
-
-	defer os.RemoveAll(tempDir)
-
-	packagePath := filepath.Join(
-		tempDir,
-		app.Name+".wqa",
-	)
-
-	fmt.Println("[INFO] Downloading...")
-
-	if err := repository.Download(
-		app,
-		packagePath,
-	); err != nil {
-		return err
-	}
-
-	fmt.Println("[INFO] Verifying SHA-256...")
-
-	if err := repository.VerifySHA256(
-		packagePath,
-		app.SHA256,
-	); err != nil {
-		return err
-	}
-
-	fmt.Println("[OK] SHA-256 verified")
-
-	fmt.Println("[INFO] Installing update...")
-
-	if err := installer.Install(packagePath); err != nil {
-		return fmt.Errorf(
-			"installation failed: %w",
-			err,
-		)
-	}
-
-	fmt.Println("[OK] Updated", app.Name)
-
-	return nil
-}
-
-func findRepository() (string, error) {
-	// 1. Ищем repository.json рядом с wsh.exe.
-	exe, err := os.Executable()
-	if err == nil {
-		dir := filepath.Dir(exe)
-
-		path := filepath.Join(
-			dir,
-			"repository.json",
-		)
-
-		if _, err := os.Stat(path); err == nil {
-			return path, nil
-		}
-	}
-
-	// 2. Ищем в текущей директории.
-	current := filepath.Join(
-		".",
-		"repository.json",
-	)
-
-	if _, err := os.Stat(current); err == nil {
-		return current, nil
-	}
-
-	return "", fmt.Errorf(
-		"repository.json not found",
-	)
-}
-
-func readWQAVersion(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-
-	header, err := format.ParseHeader(data)
-	if err != nil {
-		return "", err
-	}
-
-	manifestStart := int(header.ManifestOffset)
-	manifestEnd := manifestStart + int(header.ManifestSize)
-
-	if manifestStart < 0 ||
-		manifestEnd > len(data) ||
-		manifestStart > manifestEnd {
-		return "", fmt.Errorf(
-			"invalid manifest location",
-		)
-	}
-
-	var manifest format.Manifest
-
-	if err := json.Unmarshal(
-		data[manifestStart:manifestEnd],
-		&manifest,
-	); err != nil {
-		return "", err
-	}
-
-	return manifest.Version, nil
 }
