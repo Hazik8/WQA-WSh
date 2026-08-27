@@ -112,7 +112,14 @@ func handleCommand(input string) bool {
 
 	case "update":
 		if len(args) == 0 {
-			fmt.Println("Usage: update <app>")
+			fmt.Println("Usage: update <app|all>")
+			break
+		}
+
+		if strings.EqualFold(args[0], "all") {
+			if err := updater.UpdateAll(); err != nil {
+				fmt.Println("[ERROR]", err)
+			}
 			break
 		}
 
@@ -211,6 +218,9 @@ Package commands:
 
   update <app>
       Update an application from the repository
+
+  update all
+      Update all installed applications
 
   remove <app>
       Remove an installed application
