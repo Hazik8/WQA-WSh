@@ -1,7 +1,7 @@
 # Go build files
 *.exe
 *.dll
-*.bat
+push-WQA_WSh.bat
 
 # Build directories
 bin/
