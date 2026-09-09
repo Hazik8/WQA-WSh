@@ -8,12 +8,17 @@ import (
 
 	"windroid/wqa/internal/compiler"
 	"windroid/wqa/internal/format"
+	"windroid/wqa/internal/lexer"
 	"windroid/wqa/internal/logger"
+	"windroid/wqa/internal/parser"
 )
 
 func Build(project string) error {
 
-	manifestPath := filepath.Join(project, "wqa.json")
+	manifestPath := filepath.Join(
+		project,
+		"wqa.json",
+	)
 
 	manifest, err := format.ReadManifest(manifestPath)
 	if err != nil {
@@ -30,7 +35,29 @@ func Build(project string) error {
 		manifest.Entry,
 	)
 
-	appData, err := compiler.Compile(appPath)
+	source, err := os.ReadFile(appPath)
+	if err != nil {
+		return err
+	}
+
+	// Lexer
+	lex := lexer.New(string(source))
+
+	tokens, err := lex.Tokenize()
+	if err != nil {
+		return err
+	}
+
+	// Parser
+	p := parser.New(tokens)
+
+	program, err := p.Parse()
+	if err != nil {
+		return err
+	}
+
+	// Compiler
+	appData, err := compiler.Compile(program)
 	if err != nil {
 		return err
 	}
@@ -44,34 +71,54 @@ func Build(project string) error {
 
 	defer file.Close()
 
+	// ------------------------------
+	// Header
+	// ------------------------------
+
 	header := format.NewHeader()
 
 	header.ManifestOffset = 64
 	header.ManifestSize = uint32(len(manifestData))
 
-	header.AppOffset =
-		uint64(header.ManifestOffset) +
-			uint64(header.ManifestSize)
+	header.AppOffset = uint64(
+		header.ManifestOffset +
+			uint32(len(manifestData)),
+	)
 
-	header.AppSize =
-		uint64(len(appData))
+	header.AppSize = uint64(len(appData))
 
 	headerBytes, err := header.MarshalBinary()
-
 	if err != nil {
 		return err
 	}
 
+	// ------------------------------
 	// Header
-	file.Write(headerBytes)
+	// ------------------------------
 
+	if _, err := file.Write(headerBytes); err != nil {
+		return err
+	}
+
+	// ------------------------------
 	// Manifest
-	file.Write(manifestData)
+	// ------------------------------
 
-	// Application
-	file.Write(appData)
+	if _, err := file.Write(manifestData); err != nil {
+		return err
+	}
 
-	logger.Success("Created: " + output)
+	// ------------------------------
+	// WQBC
+	// ------------------------------
+
+	if _, err := file.Write(appData); err != nil {
+		return err
+	}
+
+	logger.Success(
+		"Created: " + output,
+	)
 
 	logger.Info(
 		fmt.Sprintf(
@@ -80,9 +127,12 @@ func Build(project string) error {
 		),
 	)
 
-	fmt.Println("App:",
-		len(appData),
-		"bytes")
+	logger.Info(
+		fmt.Sprintf(
+			"Bytecode size: %d bytes",
+			len(appData),
+		),
+	)
 
 	return nil
 }

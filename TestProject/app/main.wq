@@ -1,0 +1,7 @@
+wet x = 10
+
+wif x > 5
+    print "YES"
+else
+    print "NO"
+endwif

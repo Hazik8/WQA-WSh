@@ -208,7 +208,7 @@ func createProject(name string) {
 		Version:   "1.0.0",
 		Publisher: "Win Studio",
 		Runtime:   "wqbc",
-		Entry:     "app/main.wqa",
+		Entry:     "app/main.wq",
 		Architecture: []string{
 			"x86_64",
 			"arm64",
@@ -228,8 +228,8 @@ func createProject(name string) {
 	)
 
 	os.WriteFile(
-		filepath.Join(name, "app", "main.wqa"),
-		[]byte("// WQA Application\n"),
+		filepath.Join(name, "app", "main.wq"),
+		[]byte("print \"Hello, WQA!\"\n"),
 		0644,
 	)
 

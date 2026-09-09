@@ -18,4 +18,5 @@ const (
 
 	OP_LOOP    byte = 0x0C
 	OP_ENDLOOP byte = 0x0D
+	OP_PUSH    byte = 0x0E
 )

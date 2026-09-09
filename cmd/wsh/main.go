@@ -6,16 +6,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"windroid/wqa/internal/installer"
 	"windroid/wqa/internal/packages"
-	"windroid/wqa/internal/paths"
 	"windroid/wqa/internal/repository"
 	"windroid/wqa/internal/updater"
 )
 
-const version = "0.5.0"
+const version = "0.6.0"
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
@@ -63,7 +64,7 @@ func handleCommand(input string) bool {
 
 	switch command {
 
-	case "help":
+	case "help", "?":
 		printHelp()
 
 	case "version":
@@ -76,23 +77,71 @@ func handleCommand(input string) bool {
 		fmt.Println("Goodbye.")
 		return false
 
-	case "pwd":
+	case "pwd", "gl":
 		printWorkingDirectory()
 
 	case "cd":
 		changeDirectory(args)
 
-	case "dir", "ls":
+	case "dir", "ls", "gci":
 		listDirectory(args)
 
-	case "type", "cat":
+	case "cat", "type", "gc":
 		showFile(args)
 
-	case "mkdir":
+	case "mkdir", "newdir":
 		makeDirectory(args)
 
-	case "del", "rm":
+	case "new":
+		newItem(args)
+
+	case "del", "rm", "remove":
 		deleteFile(args)
+
+	case "cp", "copy":
+		copyItem(args)
+
+	case "mv", "move":
+		moveItem(args)
+
+	case "write":
+		writeFile(args)
+
+	case "append":
+		appendFile(args)
+
+	case "test":
+		testPath(args)
+
+	case "ps", "process":
+		listProcesses()
+
+	case "kill":
+		killProcess(args)
+
+	case "env":
+		showEnvironment(args)
+
+	case "date":
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"))
+
+	case "which":
+		whichCommand(args)
+
+	case "commands":
+		listCommands()
+
+	case "history":
+		fmt.Println("[INFO] Command history is not persistent yet.")
+
+	case "echo":
+		fmt.Println(strings.Join(args, " "))
+
+	case "set":
+		setVariable(args)
+
+	case "unset":
+		unsetVariable(args)
 
 	case "run":
 		runApplication(args)
@@ -102,7 +151,7 @@ func handleCommand(input string) bool {
 
 	case "install":
 		if len(args) == 0 {
-			fmt.Println("Usage: install <package>")
+			fmt.Println("Usage: install <package|app>")
 			break
 		}
 
@@ -127,9 +176,9 @@ func handleCommand(input string) bool {
 			fmt.Println("[ERROR]", err)
 		}
 
-	case "remove":
+	case "remove-app":
 		if len(args) == 0 {
-			fmt.Println("Usage: remove <app>")
+			fmt.Println("Usage: remove-app <app>")
 			break
 		}
 
@@ -148,6 +197,9 @@ func handleCommand(input string) bool {
 	case "search":
 		searchRepository(args)
 
+	case "alias":
+		handleAlias(args)
+
 	default:
 		runExternal(command, args)
 	}
@@ -157,27 +209,97 @@ func handleCommand(input string) bool {
 
 func printHelp() {
 	fmt.Println(`
-WinDroid Shell
+WinDroid Shell 0.6.0
 
 File commands:
 
-  pwd
+  pwd, gl
       Show current directory
 
   cd <path>
       Change directory
 
-  dir
-      List files
+  dir, ls, gci
+      List files and directories
 
-  type <file>
+  cat, type, gc <file>
       Show file contents
 
-  mkdir <name>
+  mkdir, newdir <name>
       Create directory
 
-  del <file>
+  new <file>
+      Create empty file
+
+  del, rm, remove <file>
       Delete file
+
+  cp, copy <source> <destination>
+      Copy file
+
+  mv, move <source> <destination>
+      Move file
+
+  write <file> <text>
+      Write text to file
+
+  append <file> <text>
+      Append text to file
+
+  test <path>
+      Check whether path exists
+
+System commands:
+
+  ps, process
+      List running processes
+
+  kill <pid>
+      Stop a process
+
+  env
+      Show environment variables
+
+  env <name>
+      Show one environment variable
+
+  date
+      Show current date and time
+
+  which <command>
+      Find command
+
+  commands
+      List available WSh commands
+
+  history
+      Show command history status
+
+  echo <text>
+      Print text
+
+  set <name> <value>
+      Set environment variable
+
+  unset <name>
+      Remove environment variable
+
+Package commands:
+
+  install <package|app>
+      Install WQA package or repository application
+
+  update <app>
+      Update application
+
+  update all
+      Update all installed applications
+
+  remove-app <app>
+      Remove installed application
+
+  list
+      List installed applications
 
   info <app>
       Show application information
@@ -190,13 +312,6 @@ WQA:
   wqa <command>
       Run WQA CLI
 
-      Examples:
-        wqa list
-        wqa install Calculator.wqa
-        wqa run Calculator.wqa
-        wqa info Calculator.wqa
-        wqa update Calculator
-
 Shell:
 
   help
@@ -208,28 +323,16 @@ Shell:
   clear
       Clear screen
 
+  alias
+      Show alias information
+
   exit
       Exit WSh
 
-Package commands:
-
-  install <file>
-      Install a supported package
-
-  update <app>
-      Update an application from the repository
-
-  update all
-      Update all installed applications
-
-  remove <app>
-      Remove an installed application
-
-  list
-      List installed applications
+Run:
 
   run <program.exe>
-      Run a Windows EXE`)
+      Run Windows executable`)
 }
 
 func clearScreen() {
@@ -240,7 +343,7 @@ func printWorkingDirectory() {
 	dir, err := os.Getwd()
 
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("[ERROR]", err)
 		return
 	}
 
@@ -256,7 +359,7 @@ func changeDirectory(args []string) {
 	path := strings.Join(args, " ")
 
 	if err := os.Chdir(path); err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("[ERROR]", err)
 	}
 }
 
@@ -270,7 +373,7 @@ func listDirectory(args []string) {
 	entries, err := os.ReadDir(path)
 
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("[ERROR]", err)
 		return
 	}
 
@@ -278,14 +381,25 @@ func listDirectory(args []string) {
 		if entry.IsDir() {
 			fmt.Printf("[DIR]  %s\n", entry.Name())
 		} else {
-			fmt.Printf("       %s\n", entry.Name())
+			info, err := entry.Info()
+
+			if err != nil {
+				fmt.Printf("       %s\n", entry.Name())
+				continue
+			}
+
+			fmt.Printf(
+				"       %-30s %d bytes\n",
+				entry.Name(),
+				info.Size(),
+			)
 		}
 	}
 }
 
 func showFile(args []string) {
 	if len(args) == 0 {
-		fmt.Println("Usage: type <file>")
+		fmt.Println("Usage: cat <file>")
 		return
 	}
 
@@ -294,7 +408,7 @@ func showFile(args []string) {
 	data, err := os.ReadFile(path)
 
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("[ERROR]", err)
 		return
 	}
 
@@ -310,11 +424,35 @@ func makeDirectory(args []string) {
 	name := strings.Join(args, " ")
 
 	if err := os.MkdirAll(name, 0755); err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("[ERROR]", err)
 		return
 	}
 
 	fmt.Println("[OK] Directory created:", name)
+}
+
+func newItem(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: new <file>")
+		return
+	}
+
+	path := strings.Join(args, " ")
+
+	file, err := os.OpenFile(
+		path,
+		os.O_CREATE|os.O_EXCL,
+		0644,
+	)
+
+	if err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	file.Close()
+
+	fmt.Println("[OK] File created:", path)
 }
 
 func deleteFile(args []string) {
@@ -326,11 +464,296 @@ func deleteFile(args []string) {
 	path := strings.Join(args, " ")
 
 	if err := os.Remove(path); err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("[ERROR]", err)
 		return
 	}
 
 	fmt.Println("[OK] Deleted:", path)
+}
+
+func copyItem(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: cp <source> <destination>")
+		return
+	}
+
+	source := args[0]
+	destination := args[1]
+
+	data, err := os.ReadFile(source)
+
+	if err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	if err := os.WriteFile(destination, data, 0644); err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	fmt.Println("[OK] Copied:", source, "->", destination)
+}
+
+func moveItem(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: mv <source> <destination>")
+		return
+	}
+
+	if err := os.Rename(args[0], args[1]); err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	fmt.Println("[OK] Moved:", args[0], "->", args[1])
+}
+
+func writeFile(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: write <file> <text>")
+		return
+	}
+
+	path := args[0]
+	text := strings.Join(args[1:], " ")
+
+	if err := os.WriteFile(
+		path,
+		[]byte(text),
+		0644,
+	); err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	fmt.Println("[OK] File written:", path)
+}
+
+func appendFile(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: append <file> <text>")
+		return
+	}
+
+	path := args[0]
+	text := strings.Join(args[1:], " ")
+
+	file, err := os.OpenFile(
+		path,
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND,
+		0644,
+	)
+
+	if err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	defer file.Close()
+
+	if _, err := file.WriteString(text + "\n"); err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	fmt.Println("[OK] Text appended:", path)
+}
+
+func testPath(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: test <path>")
+		return
+	}
+
+	path := strings.Join(args, " ")
+
+	info, err := os.Stat(path)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("False")
+			return
+		}
+
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	if info.IsDir() {
+		fmt.Println("True (directory)")
+	} else {
+		fmt.Println("True (file)")
+	}
+}
+
+func listProcesses() {
+	cmd := exec.Command(
+		"tasklist",
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		fmt.Println("[ERROR]", err)
+	}
+}
+
+func killProcess(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: kill <pid>")
+		return
+	}
+
+	pid, err := strconv.Atoi(args[0])
+
+	if err != nil {
+		fmt.Println("[ERROR] Invalid PID:", args[0])
+		return
+	}
+
+	process, err := os.FindProcess(pid)
+
+	if err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	if err := process.Kill(); err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	fmt.Println("[OK] Process terminated:", pid)
+}
+
+func showEnvironment(args []string) {
+	if len(args) == 0 {
+		for _, value := range os.Environ() {
+			fmt.Println(value)
+		}
+
+		return
+	}
+
+	name := args[0]
+
+	value, exists := os.LookupEnv(name)
+
+	if !exists {
+		fmt.Println("[INFO] Environment variable not found:", name)
+		return
+	}
+
+	fmt.Println(value)
+}
+
+func whichCommand(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: which <command>")
+		return
+	}
+
+	path, err := exec.LookPath(args[0])
+
+	if err != nil {
+		fmt.Println("[INFO] Command not found:", args[0])
+		return
+	}
+
+	fmt.Println(path)
+}
+
+func listCommands() {
+	fmt.Println(`
+WSh commands:
+
+help
+version
+clear
+exit
+pwd
+cd
+dir
+ls
+cat
+type
+mkdir
+new
+del
+rm
+cp
+mv
+write
+append
+test
+ps
+kill
+env
+date
+which
+commands
+history
+echo
+set
+unset
+alias
+run
+wqa
+install
+update
+remove-app
+list
+info
+search`)
+}
+
+func setVariable(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: set <name> <value>")
+		return
+	}
+
+	name := args[0]
+	value := strings.Join(args[1:], " ")
+
+	if err := os.Setenv(name, value); err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	fmt.Println("[OK] Environment variable set:", name)
+}
+
+func unsetVariable(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: unset <name>")
+		return
+	}
+
+	if err := os.Unsetenv(args[0]); err != nil {
+		fmt.Println("[ERROR]", err)
+		return
+	}
+
+	fmt.Println("[OK] Environment variable removed:", args[0])
+}
+
+func handleAlias(args []string) {
+	if len(args) == 0 {
+		fmt.Println("WSh aliases:")
+		fmt.Println("  ls       -> dir")
+		fmt.Println("  gl       -> pwd")
+		fmt.Println("  gc       -> cat")
+		fmt.Println("  gci      -> dir")
+		fmt.Println("  rm       -> del")
+		fmt.Println("  cp       -> copy")
+		fmt.Println("  mv       -> move")
+		return
+	}
+
+	fmt.Println("[INFO] Alias management will be expanded in a future version.")
 }
 
 func runWQA(args []string) {
@@ -358,7 +781,10 @@ func findWQA() (string, error) {
 	if err == nil {
 		dir := filepath.Dir(exe)
 
-		local := filepath.Join(dir, "wqa.exe")
+		local := filepath.Join(
+			dir,
+			"wqa.exe",
+		)
 
 		if _, err := os.Stat(local); err == nil {
 			return local, nil
@@ -387,7 +813,7 @@ func runExternal(command string, args []string) {
 		cmd.Stdin = os.Stdin
 
 		if err := cmd.Run(); err != nil {
-			fmt.Println("Error:", err)
+			fmt.Println("[ERROR]", err)
 		}
 
 		return
@@ -440,7 +866,10 @@ func runApplication(args []string) {
 		}
 	}
 
-	localPath := filepath.Join(".", target)
+	localPath := filepath.Join(
+		".",
+		target,
+	)
 
 	if info, err := os.Stat(localPath); err == nil {
 		if !info.IsDir() {
@@ -512,7 +941,7 @@ func searchRepository(args []string) {
 	query := strings.Join(args, " ")
 
 	repo, err := repository.Load(
-		paths.GetRepositoryPath(),
+		"repository.json",
 	)
 
 	if err != nil {
@@ -553,7 +982,7 @@ func showAppInfo(args []string) {
 	}
 
 	repo, err := repository.Load(
-		paths.GetRepositoryPath(),
+		"repository.json",
 	)
 
 	if err != nil {
@@ -564,7 +993,10 @@ func showAppInfo(args []string) {
 	app := repo.Find(query)
 
 	if app == nil {
-		fmt.Println("[ERROR] Application not found:", query)
+		fmt.Println(
+			"[ERROR] Application not found:",
+			query,
+		)
 		return
 	}
 
@@ -583,14 +1015,17 @@ func showAppInfo(args []string) {
 }
 
 func installApplication(target string) error {
-	ext := strings.ToLower(filepath.Ext(target))
+	ext := strings.ToLower(
+		filepath.Ext(target),
+	)
 
-	if ext == ".wqa" || ext == ".exe" {
+	if ext == ".wqa" ||
+		ext == ".exe" {
 		return packages.Install(target)
 	}
 
 	repo, err := repository.Load(
-		paths.GetRepositoryPath(),
+		"repository.json",
 	)
 
 	if err != nil {
@@ -619,7 +1054,10 @@ func installApplication(target string) error {
 		)
 	}
 
-	if !strings.EqualFold(app.Type, "wqa") {
+	if !strings.EqualFold(
+		app.Type,
+		"wqa",
+	) {
 		return fmt.Errorf(
 			"unsupported repository package type: %s",
 			app.Type,
@@ -661,10 +1099,11 @@ func installApplication(target string) error {
 	}
 
 	fmt.Println("[OK] SHA-256 verified")
-
 	fmt.Println("[INFO] Installing...")
 
-	if err := installer.Install(packagePath); err != nil {
+	if err := installer.Install(
+		packagePath,
+	); err != nil {
 		return fmt.Errorf(
 			"installation failed: %w",
 			err,
