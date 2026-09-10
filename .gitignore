@@ -23,6 +23,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.log
+*.png
 
 # Local WinDroid data
 WinDroid/

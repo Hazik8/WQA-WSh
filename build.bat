@@ -1,4 +1,5 @@
 @echo off
+
 setlocal
 
 title WinDroid WQA + WSh Updater
@@ -16,8 +17,9 @@ if not exist "go.mod" (
     exit /b 1
 )
 
-echo [1/6] Building WQA...
+echo [1/7] Building WQA...
 go build -o wqa.exe .\cmd\wqa
+
 if errorlevel 1 (
     echo [ERROR] WQA build failed.
     pause
@@ -27,8 +29,42 @@ if errorlevel 1 (
 echo [OK] WQA built.
 echo.
 
-echo [2/6] Building WSh...
+echo [2/7] Preparing WSh icon...
+
+if not exist "C:\WQA\wsh.ico" (
+    echo [ERROR] C:\WQA\wsh.ico not found.
+    pause
+    exit /b 1
+)
+
+where rsrc >nul 2>&1
+
+if errorlevel 1 (
+    echo [INFO] rsrc not found.
+    echo [INFO] Installing rsrc...
+    go install github.com/akavel/rsrc@latest
+
+    if errorlevel 1 (
+        echo [ERROR] Failed to install rsrc.
+        pause
+        exit /b 1
+    )
+)
+
+rsrc -ico "C:\WQA\wsh.ico" -o "C:\WQA\cmd\wsh\wsh.syso"
+
+if errorlevel 1 (
+    echo [ERROR] Failed to create wsh.syso.
+    pause
+    exit /b 1
+)
+
+echo [OK] WSh icon prepared.
+echo.
+
+echo [3/7] Building WSh...
 go build -o wsh.exe .\cmd\wsh
+
 if errorlevel 1 (
     echo [ERROR] WSh build failed.
     pause
@@ -38,7 +74,7 @@ if errorlevel 1 (
 echo [OK] WSh built.
 echo.
 
-echo [3/6] Creating WinDroid directories...
+echo [4/7] Creating WinDroid directories...
 
 if not exist "C:\WinDroid\Tools" mkdir "C:\WinDroid\Tools"
 if not exist "C:\WinDroid\Bin" mkdir "C:\WinDroid\Bin"
@@ -46,9 +82,10 @@ if not exist "C:\WinDroid\Bin" mkdir "C:\WinDroid\Bin"
 echo [OK] Directories ready.
 echo.
 
-echo [4/6] Installing WQA...
+echo [5/7] Installing WQA...
 
 copy /Y "C:\WQA\wqa.exe" "C:\WinDroid\Tools\wqa.exe" >nul
+
 if errorlevel 1 (
     echo [ERROR] Failed to install WQA to Tools.
     pause
@@ -56,6 +93,7 @@ if errorlevel 1 (
 )
 
 copy /Y "C:\WQA\wqa.exe" "C:\WinDroid\Bin\wqa.exe" >nul
+
 if errorlevel 1 (
     echo [ERROR] Failed to install WQA to Bin.
     pause
@@ -65,9 +103,10 @@ if errorlevel 1 (
 echo [OK] WQA installed.
 echo.
 
-echo [5/6] Installing WSh...
+echo [6/7] Installing WSh...
 
 copy /Y "C:\WQA\wsh.exe" "C:\WinDroid\Tools\wsh.exe" >nul
+
 if errorlevel 1 (
     echo [ERROR] Failed to install WSh to Tools.
     pause
@@ -75,6 +114,7 @@ if errorlevel 1 (
 )
 
 copy /Y "C:\WQA\wsh.exe" "C:\WinDroid\Bin\wsh.exe" >nul
+
 if errorlevel 1 (
     echo [ERROR] Failed to install WSh to Bin.
     pause
@@ -84,7 +124,7 @@ if errorlevel 1 (
 echo [OK] WSh installed.
 echo.
 
-echo [6/6] Checking installation...
+echo [7/7] Checking installation...
 echo.
 
 echo WQA:
@@ -95,18 +135,24 @@ echo WSh:
 "C:\WinDroid\Tools\wsh.exe" --version
 
 echo.
+
 echo ========================================
 echo       Installation completed!
 echo ========================================
 echo.
+
 echo WQA:
 echo   C:\WinDroid\Tools\wqa.exe
 echo   C:\WinDroid\Bin\wqa.exe
+
 echo.
+
 echo WSh:
 echo   C:\WinDroid\Tools\wsh.exe
 echo   C:\WinDroid\Bin\wsh.exe
+
 echo.
 
 pause
+
 endlocal
