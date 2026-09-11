@@ -20,6 +20,23 @@ func New(tokens []lexer.Token) *Parser {
 func (p *Parser) Parse() (*Program, error) {
 	program := &Program{}
 
+	// WQA source header is required.
+	if p.isAtEnd() || !p.check(lexer.TokenWQA) {
+		token := p.peek()
+
+		return nil, p.errorAt(
+			token,
+			"expected WQA header",
+		)
+	}
+
+	// Consume WQA header.
+	p.advance()
+
+	// Allow empty lines after the header.
+	for p.match(lexer.TokenNewline) {
+	}
+
 	for !p.isAtEnd() {
 		if p.match(lexer.TokenNewline) {
 			continue

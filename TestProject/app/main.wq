@@ -1,4 +1,6 @@
-wet x = 10
+wqa
+
+wet x = 4
 
 wif x > 5
     print "YES"

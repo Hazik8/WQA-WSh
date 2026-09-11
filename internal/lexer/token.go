@@ -9,6 +9,8 @@ const (
 	TokenNumber     TokenType = "NUMBER"
 	TokenString     TokenType = "STRING"
 
+	TokenWQA TokenType = "WQA"
+
 	TokenSet   TokenType = "SET"
 	TokenPrint TokenType = "PRINT"
 	TokenAdd   TokenType = "ADD"

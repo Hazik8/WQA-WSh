@@ -276,6 +276,10 @@ func (l *Lexer) readString(
 
 func keywordToken(value string) TokenType {
 	switch strings.ToLower(value) {
+
+	case "wqa":
+		return TokenWQA
+
 	case "wet":
 		return TokenSet
 

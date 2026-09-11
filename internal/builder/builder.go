@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"windroid/wqa/internal/compiler"
 	"windroid/wqa/internal/format"
@@ -40,8 +41,23 @@ func Build(project string) error {
 		return err
 	}
 
+	// WQA source header
+	sourceText := string(source)
+
+	if strings.TrimSpace(sourceText) == "" {
+		return fmt.Errorf("WQA source cannot be empty")
+	}
+
+	lines := strings.Split(sourceText, "\n")
+
+	firstLine := strings.TrimSpace(lines[0])
+
+	if firstLine != "wqa" {
+		return fmt.Errorf("WQA source must start with 'wqa'")
+	}
+
 	// Lexer
-	lex := lexer.New(string(source))
+	lex := lexer.New(sourceText)
 
 	tokens, err := lex.Tokenize()
 	if err != nil {
@@ -55,7 +71,6 @@ func Build(project string) error {
 	if err != nil {
 		return err
 	}
-
 	// Compiler
 	appData, err := compiler.Compile(program)
 	if err != nil {
