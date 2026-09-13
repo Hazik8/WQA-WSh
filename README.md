@@ -189,7 +189,7 @@ Supported comparison operators include:
 
 For the complete WQA language specification, see:
 
-`WQA_LANGUAGE.md`
+`https://github.com/Hazik8/WQA-WSh-Docs`
 
 ## WQA Projects
 
