@@ -10,6 +10,7 @@ echo ========================================
 echo.
 
 cd /d C:\WQA
+go fmt ./...
 
 if not exist "go.mod" (
     echo [ERROR] C:\WQA\go.mod not found.

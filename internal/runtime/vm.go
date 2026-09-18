@@ -1,25 +1,41 @@
 package runtime
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
+	"time"
 )
 
-type VM struct {
-	Code []byte
-	IP   int
+type RepeatFrame struct {
+	Remaining int
+	BodyStart int
+	Exit      int
+}
 
+type VM struct {
+	Code      []byte
+	IP        int
 	Variables map[string]interface{}
 	Stack     []interface{}
+
+	RepeatStack []RepeatFrame
+	CallStack   []int
 }
 
 func New(code []byte) *VM {
 	return &VM{
-		Code:      code,
-		IP:        0,
+		Code: code,
+		IP:   0,
+
 		Variables: make(map[string]interface{}),
 		Stack:     make([]interface{}, 0),
+
+		RepeatStack: make([]RepeatFrame, 0),
+		CallStack:   make([]int, 0),
 	}
 }
 
@@ -114,6 +130,14 @@ func (vm *VM) Run() {
 
 		switch op {
 
+		case OP_TIME:
+			now := time.Now()
+			fmt.Printf("%02d:%02d:%02d\n", now.Hour(), now.Minute(), now.Second())
+
+		case OP_DATE:
+			now := time.Now()
+			fmt.Printf("%02d.%02d.%04d\n", now.Day(), now.Month(), now.Year())
+
 		case OP_PUSH:
 
 			value, err := vm.readString()
@@ -131,6 +155,203 @@ func (vm *VM) Run() {
 			} else {
 				vm.push(value)
 			}
+
+		case OP_REPEAT:
+
+			countValue, err := vm.pop()
+
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			count, err := vm.getNumber(countValue)
+
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			exitAddress, err := vm.readUint32()
+
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			// repeat 0 ничего не выполняет.
+			if count <= 0 {
+				vm.IP = int(exitAddress)
+				continue
+			}
+
+			// После OP_REPEAT идут 4 байта адреса выхода,
+			// поэтому это и есть начало тела repeat.
+			bodyStart := vm.IP
+
+			vm.RepeatStack = append(
+				vm.RepeatStack,
+				RepeatFrame{
+					Remaining: count,
+					BodyStart: bodyStart,
+					Exit:      int(exitAddress),
+				},
+			)
+
+		case OP_LOOP:
+
+			operator, err := vm.readString()
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			exitAddress, err := vm.readUint32()
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			right, err := vm.pop()
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			left, err := vm.pop()
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			l, err := vm.getNumber(left)
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			r, err := vm.getNumber(right)
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			result := false
+
+			switch operator {
+
+			case ">":
+				result = l > r
+
+			case "<":
+				result = l < r
+
+			case "==":
+				result = l == r
+
+			default:
+				fmt.Printf(
+					"Runtime error: unknown loop operator %q\n",
+					operator,
+				)
+				return
+			}
+
+			if !result {
+				vm.IP = int(exitAddress)
+			}
+
+		case OP_JUMP:
+
+			address, err := vm.readUint32()
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			vm.IP = int(address)
+
+		case OP_CALL:
+
+			address, err := vm.readUint32()
+
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			// IP уже указывает после адреса функции.
+			vm.CallStack = append(
+				vm.CallStack,
+				vm.IP,
+			)
+
+			vm.IP = int(address)
+
+		case OP_RET:
+
+			if len(vm.CallStack) == 0 {
+				fmt.Println("Runtime error: unexpected ret")
+				return
+			}
+
+			index := len(vm.CallStack) - 1
+
+			vm.IP = vm.CallStack[index]
+
+			vm.CallStack = vm.CallStack[:index]
+
+		case OP_INPUT:
+
+			name, err := vm.readString()
+
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			fmt.Print("> ")
+
+			reader := bufio.NewReader(os.Stdin)
+
+			value, err := reader.ReadString('\n')
+
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			vm.Variables[name] = strings.TrimRight(
+				value,
+				"\r\n",
+			)
+
+		case OP_CLEAR:
+
+			fmt.Print("\033[H\033[2J")
+
+		case OP_WAIT:
+
+			value, err := vm.pop()
+
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			seconds, err := vm.getNumber(value)
+
+			if err != nil {
+				fmt.Println("Runtime error:", err)
+				return
+			}
+
+			if seconds < 0 {
+				fmt.Println("Runtime error: wait duration cannot be negative")
+				return
+			}
+
+			time.Sleep(time.Duration(seconds) * time.Second)
 
 		case OP_PRINT:
 
@@ -354,13 +575,27 @@ func (vm *VM) Run() {
 
 			continue
 
-		case OP_LOOP:
-
-			continue
-
 		case OP_ENDLOOP:
 
 			continue
+
+		case OP_ENDREPEAT:
+
+			if len(vm.RepeatStack) == 0 {
+				fmt.Println("Runtime error: unexpected endrepeat")
+				return
+			}
+
+			index := len(vm.RepeatStack) - 1
+			frame := &vm.RepeatStack[index]
+
+			frame.Remaining--
+
+			if frame.Remaining > 0 {
+				vm.IP = frame.BodyStart
+			} else {
+				vm.RepeatStack = vm.RepeatStack[:index]
+			}
 
 		case OP_EXIT:
 
@@ -463,7 +698,8 @@ func (vm *VM) skipInstructionOperands(op byte) bool {
 	case OP_PUSH,
 		OP_SET,
 		OP_LOAD,
-		OP_IF:
+		OP_IF,
+		OP_INPUT:
 
 		_, err := vm.readString()
 
@@ -521,4 +757,20 @@ func (vm *VM) binaryOperation(
 	vm.push(
 		operation(a, b),
 	)
+}
+
+func (vm *VM) readUint32() (uint32, error) {
+	if vm.IP+4 > len(vm.Code) {
+		return 0, fmt.Errorf(
+			"unexpected end of bytecode while reading address",
+		)
+	}
+
+	value := binary.BigEndian.Uint32(
+		vm.Code[vm.IP : vm.IP+4],
+	)
+
+	vm.IP += 4
+
+	return value, nil
 }

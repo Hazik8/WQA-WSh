@@ -307,6 +307,48 @@ func keywordToken(value string) TokenType {
 	case "endwif":
 		return TokenEndIf
 
+	case "wloop":
+		return TokenLoop
+
+	case "endloop":
+		return TokenEndLoop
+
+	case "repeat":
+		return TokenRepeat
+
+	case "endrepeat":
+		return TokenEndRepeat
+
+	case "wfunc":
+		return TokenFunc
+
+	case "endfunc":
+		return TokenEndFunc
+
+	case "call":
+		return TokenCall
+
+	case "give":
+		return TokenGive
+
+	case "winput":
+		return TokenInput
+
+	case "wtime":
+		return TokenTime
+
+	case "wdate":
+		return TokenDate
+
+	case "wclear":
+		return TokenClear
+
+	case "wait":
+		return TokenWait
+
+	case "wexit":
+		return TokenExit
+
 	default:
 		return TokenIdentifier
 	}

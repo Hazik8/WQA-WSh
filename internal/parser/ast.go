@@ -85,3 +85,76 @@ type ComparisonExpression struct {
 
 func (ComparisonExpression) node()       {}
 func (ComparisonExpression) expression() {}
+
+type LoopStatement struct {
+	Condition Expression
+	Body      []Statement
+}
+
+func (LoopStatement) node()      {}
+func (LoopStatement) statement() {}
+
+type RepeatStatement struct {
+	Count Expression
+	Body  []Statement
+}
+
+func (RepeatStatement) node()      {}
+func (RepeatStatement) statement() {}
+
+type FuncStatement struct {
+	Name string
+	Body []Statement
+}
+
+func (FuncStatement) node()      {}
+func (FuncStatement) statement() {}
+
+type CallStatement struct {
+	Name   string
+	Result string
+}
+
+func (CallStatement) node()      {}
+func (CallStatement) statement() {}
+
+type GiveStatement struct {
+	Value Expression
+}
+
+func (GiveStatement) node()      {}
+func (GiveStatement) statement() {}
+
+type InputStatement struct {
+	Name string
+}
+
+func (InputStatement) node()      {}
+func (InputStatement) statement() {}
+
+type ClearStatement struct{}
+
+func (ClearStatement) node()      {}
+func (ClearStatement) statement() {}
+
+type WaitStatement struct {
+	Duration Expression
+}
+
+func (WaitStatement) node()      {}
+func (WaitStatement) statement() {}
+
+type ExitStatement struct{}
+
+func (ExitStatement) node()      {}
+func (ExitStatement) statement() {}
+
+type TimeStatement struct{}
+
+func (TimeStatement) node()      {}
+func (TimeStatement) statement() {}
+
+type DateStatement struct{}
+
+func (DateStatement) node()      {}
+func (DateStatement) statement() {}

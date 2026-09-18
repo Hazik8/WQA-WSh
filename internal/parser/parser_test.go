@@ -9,6 +9,8 @@ import (
 func parseSource(t *testing.T, source string) *Program {
 	t.Helper()
 
+	source = "wqa\n" + source
+
 	tokens, err := lexer.New(source).Tokenize()
 	if err != nil {
 		t.Fatalf("lexer error: %v", err)

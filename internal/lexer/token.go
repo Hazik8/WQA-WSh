@@ -22,6 +22,27 @@ const (
 	TokenElse  TokenType = "ELSE"
 	TokenEndIf TokenType = "ENDIF"
 
+	TokenLoop    TokenType = "LOOP"
+	TokenEndLoop TokenType = "ENDLOOP"
+
+	TokenRepeat    TokenType = "REPEAT"
+	TokenEndRepeat TokenType = "ENDREPEAT"
+
+	TokenFunc    TokenType = "FUNC"
+	TokenEndFunc TokenType = "ENDFUNC"
+
+	TokenCall TokenType = "CALL"
+
+	TokenGive TokenType = "GIVE"
+
+	TokenInput TokenType = "INPUT"
+	TokenClear TokenType = "CLEAR"
+	TokenWait  TokenType = "WAIT"
+	TokenExit  TokenType = "EXIT"
+
+	TokenTime TokenType = "TIME"
+	TokenDate TokenType = "DATE"
+
 	TokenEquals     TokenType = "="
 	TokenEqualEqual TokenType = "=="
 	TokenGreater    TokenType = ">"

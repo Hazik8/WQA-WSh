@@ -68,6 +68,9 @@ func (p *Parser) parseStatement() (Statement, error) {
 	case lexer.TokenPrint:
 		return p.parsePrint()
 
+	case lexer.TokenLoop:
+		return p.parseLoop()
+
 	case lexer.TokenAdd:
 		return p.parseBinary(lexer.TokenAdd)
 
@@ -82,6 +85,36 @@ func (p *Parser) parseStatement() (Statement, error) {
 
 	case lexer.TokenIf:
 		return p.parseIf()
+
+	case lexer.TokenRepeat:
+		return p.parseRepeat()
+
+	case lexer.TokenFunc:
+		return p.parseFunc()
+
+	case lexer.TokenCall:
+		return p.parseCall()
+
+	case lexer.TokenGive:
+		return p.parseGive()
+
+	case lexer.TokenInput:
+		return p.parseInput()
+
+	case lexer.TokenClear:
+		return p.parseClear()
+
+	case lexer.TokenWait:
+		return p.parseWait()
+
+	case lexer.TokenExit:
+		return p.parseExit()
+
+	case lexer.TokenTime:
+		return p.parseTime()
+
+	case lexer.TokenDate:
+		return p.parseDate()
 
 	default:
 		token := p.peek()
@@ -269,6 +302,188 @@ func (p *Parser) parseIf() (Statement, error) {
 	}, nil
 }
 
+func (p *Parser) parseLoop() (Statement, error) {
+	p.advance()
+
+	left, err := p.parseExpression()
+	if err != nil {
+		return nil, err
+	}
+
+	operator := p.peek()
+
+	switch operator.Type {
+	case lexer.TokenGreater,
+		lexer.TokenLess,
+		lexer.TokenEqualEqual:
+
+		p.advance()
+
+	default:
+		return nil, p.errorAt(
+			operator,
+			"expected comparison operator after wloop condition",
+		)
+	}
+
+	right, err := p.parseExpression()
+	if err != nil {
+		return nil, err
+	}
+
+	condition := ComparisonExpression{
+		Left:     left,
+		Operator: operator.Type,
+		Right:    right,
+	}
+
+	for p.match(lexer.TokenNewline) {
+	}
+
+	var body []Statement
+
+	for !p.isAtEnd() &&
+		p.peek().Type != lexer.TokenEndLoop {
+
+		statement, err := p.parseStatement()
+		if err != nil {
+			return nil, err
+		}
+
+		body = append(
+			body,
+			statement,
+		)
+
+		for p.match(lexer.TokenNewline) {
+		}
+	}
+
+	if _, err := p.expect(
+		lexer.TokenEndLoop,
+		"expected endloop after wloop",
+	); err != nil {
+		return nil, err
+	}
+
+	return LoopStatement{
+		Condition: condition,
+		Body:      body,
+	}, nil
+}
+
+func (p *Parser) parseRepeat() (Statement, error) {
+	p.advance()
+
+	count, err := p.parseExpression()
+	if err != nil {
+		return nil, err
+	}
+
+	// Пропускаем переносы строк после repeat.
+	for p.match(lexer.TokenNewline) {
+	}
+
+	var body []Statement
+
+	for !p.check(lexer.TokenEndRepeat) &&
+		!p.check(lexer.TokenEOF) {
+
+		statement, err := p.parseStatement()
+		if err != nil {
+			return nil, err
+		}
+
+		body = append(body, statement)
+
+		// Пропускаем переносы строк между командами.
+		for p.match(lexer.TokenNewline) {
+		}
+	}
+
+	if !p.check(lexer.TokenEndRepeat) {
+		return nil, fmt.Errorf(
+			"parser error: expected endrepeat",
+		)
+	}
+
+	p.advance()
+
+	return RepeatStatement{
+		Count: count,
+		Body:  body,
+	}, nil
+}
+
+func (p *Parser) parseFunc() (Statement, error) {
+	p.advance()
+
+	name, err := p.expect(
+		lexer.TokenIdentifier,
+		"expected function name after wfunc",
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for p.match(lexer.TokenNewline) {
+	}
+
+	var body []Statement
+
+	for !p.check(lexer.TokenEndFunc) &&
+		!p.check(lexer.TokenEOF) {
+
+		statement, err := p.parseStatement()
+		if err != nil {
+			return nil, err
+		}
+
+		body = append(body, statement)
+
+		for p.match(lexer.TokenNewline) {
+		}
+	}
+
+	if !p.check(lexer.TokenEndFunc) {
+		return nil, fmt.Errorf(
+			"parser error: expected endfunc",
+		)
+	}
+
+	p.advance()
+
+	return FuncStatement{
+		Name: name.Lexeme,
+		Body: body,
+	}, nil
+}
+
+func (p *Parser) parseCall() (Statement, error) {
+	p.advance()
+
+	name, err := p.expect(
+		lexer.TokenIdentifier,
+		"expected function name after call",
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	result := ""
+
+	// Необязательная переменная для результата.
+	if p.check(lexer.TokenIdentifier) {
+		resultToken := p.advance()
+		result = resultToken.Lexeme
+	}
+
+	return CallStatement{
+		Name:   name.Lexeme,
+		Result: result,
+	}, nil
+}
+
 func (p *Parser) parseExpression() (Expression, error) {
 	token := p.peek()
 
@@ -392,4 +607,68 @@ func (p *Parser) errorAt(
 		token.Column,
 		message,
 	)
+}
+
+func (p *Parser) parseGive() (Statement, error) {
+	p.advance()
+
+	value, err := p.parseExpression()
+	if err != nil {
+		return nil, err
+	}
+
+	return GiveStatement{
+		Value: value,
+	}, nil
+}
+
+func (p *Parser) parseInput() (Statement, error) {
+	p.advance()
+
+	name, err := p.expect(
+		lexer.TokenIdentifier,
+		"expected variable name after winput",
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return InputStatement{
+		Name: name.Lexeme,
+	}, nil
+}
+
+func (p *Parser) parseClear() (Statement, error) {
+	p.advance()
+
+	return ClearStatement{}, nil
+}
+
+func (p *Parser) parseWait() (Statement, error) {
+	p.advance()
+
+	duration, err := p.parseExpression()
+	if err != nil {
+		return nil, err
+	}
+
+	return WaitStatement{
+		Duration: duration,
+	}, nil
+}
+
+func (p *Parser) parseExit() (Statement, error) {
+	p.advance()
+
+	return ExitStatement{}, nil
+}
+
+func (p *Parser) parseTime() (Statement, error) {
+	p.advance()
+	return TimeStatement{}, nil
+}
+
+func (p *Parser) parseDate() (Statement, error) {
+	p.advance()
+	return DateStatement{}, nil
 }

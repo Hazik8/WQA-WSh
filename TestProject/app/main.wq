@@ -1,9 +1,9 @@
 wqa
 
-wet x = 4
+print "Current time:"
+wtime
 
-wif x > 5
-    print "YES"
-else
-    print "NO"
-endwif
+print "Current date:"
+wdate
+
+wexit
