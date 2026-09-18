@@ -262,7 +262,7 @@ wsh [C:\]> run Calculator.wqa
 The complete WQA language specification is available in:
 
 ```text
-WQA_LANGUAGE.md
+[WQA_LANGUAGE.md](https://github.com/Hazik8/WQA-WSh-Docs)
 ```
 
 Documentation repository:
