@@ -7,11 +7,13 @@
 ## Versions
 
 * **WQA:** 1.1.0
-* **WSh:** 0.7.0
+* **WSh:** 1.0.0
 * **Runtime:** WQBC
 * **Architectures:** x86_64, arm64
 
-## WQA 1.1.0
+---
+
+# WQA 1.1.0
 
 WQA 1.1.0 expands the core language with:
 
@@ -83,35 +85,34 @@ endwif
 ## Core Commands
 
 ```text
-wet       variable
-print     output
+wet        variable
+print      output
+add        addition
+sub        subtraction
+mul        multiplication
+div        division
 
-add       addition
-sub       subtraction
-mul       multiplication
-div       division
+wif        condition
+else       alternative branch
+endwif     end condition
 
-wif       condition
-else      alternative branch
-endwif    end condition
+wloop      loop
+endloop    end loop
 
-wloop     loop
-endloop   end loop
+repeat     repeat block
+endrepeat  end repeat
 
-repeat    repeat block
-endrepeat end repeat
+wfunc      function
+endfunc    end function
+call       call function
+give       return value
 
-wfunc     function
-endfunc   end function
-call      call function
-give      return value
-
-winput    user input
-wclear    clear console
-wait      delay
-wtime     current time
-wdate     current date
-wexit     exit program
+winput     user input
+wclear     clear console
+wait       delay
+wtime      current time
+wdate      current date
+wexit      exit program
 ```
 
 ## Building
@@ -195,11 +196,14 @@ Example output:
 ```text
 Current time:
 23:24:31
+
 Current date:
 18.09.2026
 ```
 
-## WQBC
+---
+
+# WQBC
 
 WQBC is the bytecode runtime used to execute compiled WQA applications.
 
@@ -207,57 +211,145 @@ The execution pipeline is:
 
 ```text
 .wq
- ↓
+  ↓
 Lexer
- ↓
+  ↓
 Parser
- ↓
+  ↓
 Compiler
- ↓
+  ↓
 WQBC
- ↓
+  ↓
 .wqa
- ↓
+  ↓
 WQBC Runtime
- ↓
+  ↓
 Application
 ```
 
-## WSh
+---
+
+# WSh 1.0.0
 
 WSh provides command-line management for the WinDroid application ecosystem.
 
-Example commands:
+WSh can:
+
+* Manage files and directories
+* Run Windows programs
+* Run WQA applications
+* Manage installed applications
+* Search the WQA application repository
+* Install and update applications
+* Manage shell history
+* Create command aliases
+* Manage environment variables
+
+## WSh Commands
+
+### Shell
 
 ```text
-help
+help, ?
 version
-clear
-cd
-pwd
-dir
-ls
-type
-cat
-mkdir
-del
-rm
-run
-install
-remove
-list
-search
-wqa
-exit
+--version
+-v
+clear, cls
+history
+alias
+unalias
+exit, quit
 ```
 
-Example:
+### Files
 
 ```text
-wsh [C:\]> run Calculator.wqa
+pwd, gl
+cd <path>
+dir, ls, gci
+cat, type, gc <file>
+mkdir, newdir <name>
+new <file>
+del, rm, remove <file>
+cp, copy <source> <destination>
+mv, move <source> <destination>
+write <file> <text>
+append <file> <text>
+test <path>
 ```
 
-## Documentation
+### System
+
+```text
+ps, process
+kill <pid>
+env
+env <name>
+set <name> <value>
+unset <name>
+date
+which <command>
+echo <text>
+```
+
+### Run
+
+```text
+run <program>
+wqa <command>
+```
+
+### Packages
+
+```text
+repo
+repo update
+install <package|app>
+update <app>
+update all
+remove-app <app>
+list
+info <app>
+search [name]
+```
+
+## WSh Example
+
+```text
+wsh [C:\WQA]> wqa build
+[OK] Created: TestProject.wqa
+
+wsh [C:\WQA]> wqa run TestProject.wqa
+[INFO] Loading: TestProject.wqa
+[INFO] Starting WQBC Runtime
+```
+
+WSh can also run regular Windows programs:
+
+```text
+wsh [C:\WQA]> run notepad.exe
+[OK] Process started: C:\Windows\system32\notepad.exe
+```
+
+## WSh Application Repository
+
+WSh includes an application repository system for WQA applications.
+
+Repository operations include:
+
+```text
+repo update
+search Calculator
+info windroid.Calculator
+install windroid.Calculator
+list
+```
+
+Applications are downloaded and verified using SHA-256 before installation.
+
+---
+
+# Documentation
 
 The complete WQA language specification is available in:
 
@@ -267,13 +359,17 @@ Documentation repository:
 
 [WQA-WSh-Docs](https://github.com/Hazik8/WQA-WSh-Docs)
 
-## Project Structure
+---
+
+# Project Structure
 
 ```text
 WQA/
+
 ├── cmd/
 │   ├── wqa/
 │   └── wsh/
+│
 ├── internal/
 │   ├── compiler/
 │   ├── format/
@@ -281,6 +377,7 @@ WQA/
 │   ├── parser/
 │   ├── runtime/
 │   └── ...
+│
 ├── examples/
 ├── README.md
 ├── WQA_LANGUAGE.md
@@ -288,15 +385,21 @@ WQA/
 └── LICENSE
 ```
 
-## Project Status
+---
+
+# Project Status
 
 WQA and WSh are actively developed as part of the WinDroid ecosystem.
 
 **Current WQA version: 1.1.0**
 
-**Current WSh version: 0.7.0**
+**Current WSh version: 1.0.0**
 
-## License
+WSh 1.0.0 focuses on a stable command-line environment for Windows and integration with the WQA application ecosystem.
+
+---
+
+# License
 
 This project is licensed under the MIT License.
 

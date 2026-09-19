@@ -5,7 +5,7 @@ import "fmt"
 func printHelp() {
 	fmt.Println(`
 ╔══════════════════════════════════════╗
-║        WinDroid Shell 0.7.0         ║
+║        WinDroid Shell 1.0.0          ║
 ╚══════════════════════════════════════╝
 
 File commands:
@@ -29,13 +29,13 @@ File commands:
       Create empty file
 
   del, rm, remove <file>
-      Delete file
+      Delete file or directory
 
   cp, copy <source> <destination>
-      Copy file
+      Copy file or directory
 
   mv, move <source> <destination>
-      Move file
+      Move file or directory
 
   write <file> <text>
       Write text to file
@@ -45,12 +45,6 @@ File commands:
 
   test <path>
       Check whether path exists
-
-  repo
-      Application repository management
-      
-  repo update
-      Update the local application repository
 
 
 System commands:
@@ -85,6 +79,9 @@ System commands:
 
 Shell:
 
+  help, ?
+      Show this help
+
   history
       Show command history
 
@@ -100,13 +97,13 @@ Shell:
   unalias <name>
       Remove an alias
 
-  commands
-      List commands
-
   version
       Show WSh version
 
   --version
+      Show WSh version
+
+  -v
       Show WSh version
 
   clear, cls
@@ -118,11 +115,20 @@ Shell:
 
 Run:
 
-  run <program.exe>
+  run <program>
       Run Windows executable
+
+  wqa <command>
+      Run WQA CLI
 
 
 Packages:
+
+  repo
+      Show repository usage
+
+  repo update
+      Update the application repository
 
   install <package|app>
       Install application
@@ -143,11 +149,5 @@ Packages:
       Show application information
 
   search [name]
-      Search WQA application repository
-
-
-WQA:
-
-  wqa <command>
-      Run WQA CLI`)
+      Search WQA application repository`)
 }

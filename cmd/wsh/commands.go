@@ -20,20 +20,8 @@ func parseCommandLine(input string) []string {
 	var current strings.Builder
 
 	var quote rune
-	escaped := false
 
 	for _, r := range input {
-		if escaped {
-			current.WriteRune(r)
-			escaped = false
-			continue
-		}
-
-		if r == '\\' {
-			escaped = true
-			continue
-		}
-
 		if quote != 0 {
 			if r == quote {
 				quote = 0
@@ -83,6 +71,7 @@ func printWorkingDirectory() {
 func changeDirectory(args []string) {
 	if len(args) == 0 {
 		fmt.Println("Usage: cd <path>")
+		lastExitCode = 1
 		return
 	}
 
@@ -90,7 +79,11 @@ func changeDirectory(args []string) {
 
 	if err := os.Chdir(path); err != nil {
 		fmt.Println("[ERROR]", err)
+		lastExitCode = 1
+		return
 	}
+
+	lastExitCode = 0
 }
 
 func listDirectory(args []string) {
@@ -381,6 +374,7 @@ func showEnvironment(args []string) {
 func setVariable(args []string) {
 	if len(args) < 2 {
 		fmt.Println("Usage: set <name> <value>")
+		lastExitCode = 1
 		return
 	}
 
@@ -389,15 +383,18 @@ func setVariable(args []string) {
 
 	if err := os.Setenv(name, value); err != nil {
 		fmt.Println("[ERROR]", err)
+		lastExitCode = 1
 		return
 	}
 
 	fmt.Printf("[OK] %s=%s\n", name, value)
+	lastExitCode = 0
 }
 
 func unsetVariable(args []string) {
 	if len(args) == 0 {
 		fmt.Println("Usage: unset <name>")
+		lastExitCode = 1
 		return
 	}
 
@@ -405,10 +402,12 @@ func unsetVariable(args []string) {
 
 	if err := os.Unsetenv(name); err != nil {
 		fmt.Println("[ERROR]", err)
+		lastExitCode = 1
 		return
 	}
 
 	fmt.Println("[OK] Removed:", name)
+	lastExitCode = 0
 }
 
 func showDate() {
@@ -434,6 +433,7 @@ func whichCommand(args []string) {
 func echoCommand(args []string) {
 	if len(args) == 0 {
 		fmt.Println()
+		lastExitCode = 0
 		return
 	}
 
@@ -445,6 +445,7 @@ func echoCommand(args []string) {
 	}
 
 	fmt.Println(text)
+	lastExitCode = 0
 }
 
 func runExternal(command string, args []string) {
@@ -481,7 +482,20 @@ func runApplication(args []string) {
 
 	// Direct path.
 	if _, err := os.Stat(target); err == nil {
-		startProcess(target, extraArgs)
+		path := target
+
+		if !filepath.IsAbs(path) {
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				fmt.Println("[ERROR]", err)
+				lastExitCode = 1
+				return
+			}
+
+			path = absPath
+		}
+
+		startProcess(path, extraArgs)
 		return
 	}
 
@@ -533,24 +547,32 @@ func startProcess(path string, args []string) {
 func runWQA(args []string) {
 	if len(args) == 0 {
 		fmt.Println("Usage: wqa <command>")
-		return
-	}
-
-	executable := "wqa"
-
-	cmd := exec.Command(executable, args...)
-
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
 		lastExitCode = 1
-		fmt.Println("[ERROR]", err)
 		return
 	}
 
-	lastExitCode = 0
+	target := "wqa.exe"
+
+	if _, err := os.Stat(target); err == nil {
+		path, err := filepath.Abs(target)
+		if err != nil {
+			fmt.Println("[ERROR]", err)
+			lastExitCode = 1
+			return
+		}
+
+		startProcess(path, args)
+		return
+	}
+
+	path, err := exec.LookPath(target)
+	if err != nil {
+		fmt.Println("[ERROR]", err)
+		lastExitCode = 1
+		return
+	}
+
+	startProcess(path, args)
 }
 
 func handleRepo(args []string) {
@@ -823,24 +845,6 @@ func installApplication(target string) error {
 	}
 
 	return nil
-}
-
-func findRepositoryFile() (string, error) {
-	if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
-		cachePath := filepath.Join(
-			userProfile,
-			".wsh",
-			"repository.json",
-		)
-
-		if _, err := os.Stat(cachePath); err == nil {
-			return cachePath, nil
-		}
-	}
-
-	return "", fmt.Errorf(
-		"repository cache not found",
-	)
 }
 
 func searchRepository(args []string) {
