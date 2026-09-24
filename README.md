@@ -1,8 +1,8 @@
 # WQA & WSh
 
-**WQA (WinDroid Application)** is an application language, bytecode runtime, and package system created by **Win Studio** for the WinDroid ecosystem.
+**WQA (Win Quick Application)** is an application language, bytecode runtime, and package system created by **Win Studio** for the WinDroid ecosystem.
 
-**WSh (WinDroid Shell)** is a command-line shell for managing and running WQA applications and Windows programs.
+**WSh (Win Shell)** is a command-line shell for managing and running WQA applications and Windows programs.
 
 ## Versions
 
@@ -407,6 +407,6 @@ See `LICENSE` for details.
 
 ---
 
-# Win Studio
+# Win Stydio
 
-WQA and WSh are projects of **Win Studio**.
+WQA and WSh are projects of **Win Stydio**.
