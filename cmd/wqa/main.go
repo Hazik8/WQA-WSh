@@ -16,7 +16,7 @@ import (
 	"windroid/wqa/internal/verify"
 )
 
-const version = "1.1.0"
+const version = "1.2.0"
 
 type Manifest struct {
 	WQA          string   `json:"wqa"`
@@ -206,7 +206,7 @@ func createProject(name string) {
 		ID:        "windroid." + name,
 		Name:      name,
 		Version:   "1.0.0",
-		Publisher: "Win Studio",
+		Publisher: "Win Stydio",
 		Runtime:   "wqbc",
 		Entry:     "app/main.wq",
 		Architecture: []string{

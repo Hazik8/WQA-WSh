@@ -485,10 +485,81 @@ func (p *Parser) parseCall() (Statement, error) {
 }
 
 func (p *Parser) parseExpression() (Expression, error) {
+	return p.parseAdditive()
+}
+
+func (p *Parser) parseAdditive() (Expression, error) {
+	expr, err := p.parseMultiplicative()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.check(lexer.TokenPlus) || p.check(lexer.TokenMinus) {
+		operator := p.advance()
+
+		right, err := p.parseMultiplicative()
+		if err != nil {
+			return nil, err
+		}
+
+		expr = BinaryExpression{
+			Left:     expr,
+			Operator: operator.Type,
+			Right:    right,
+		}
+	}
+
+	return expr, nil
+}
+
+func (p *Parser) parseMultiplicative() (Expression, error) {
+	expr, err := p.parseUnary()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.check(lexer.TokenStar) ||
+		p.check(lexer.TokenSlash) ||
+		p.check(lexer.TokenDoubleSlash) ||
+		p.check(lexer.TokenPercent) {
+
+		operator := p.advance()
+
+		right, err := p.parseUnary()
+		if err != nil {
+			return nil, err
+		}
+
+		expr = BinaryExpression{
+			Left:     expr,
+			Operator: operator.Type,
+			Right:    right,
+		}
+	}
+
+	return expr, nil
+}
+
+func (p *Parser) parseUnary() (Expression, error) {
+	if p.match(lexer.TokenMinus) {
+		right, err := p.parseUnary()
+		if err != nil {
+			return nil, err
+		}
+
+		return UnaryExpression{
+			Operator: lexer.TokenMinus,
+			Right:    right,
+		}, nil
+	}
+
+	return p.parsePrimary()
+}
+
+func (p *Parser) parsePrimary() (Expression, error) {
 	token := p.peek()
 
 	switch token.Type {
-
 	case lexer.TokenIdentifier:
 		p.advance()
 
@@ -510,15 +581,31 @@ func (p *Parser) parseExpression() (Expression, error) {
 			Token: token,
 		}, nil
 
-	default:
-		return nil, p.errorAt(
-			token,
-			fmt.Sprintf(
-				"expected expression, got %q",
-				token.Lexeme,
-			),
-		)
+	case lexer.TokenLeftParen:
+		p.advance()
+
+		expr, err := p.parseExpression()
+		if err != nil {
+			return nil, err
+		}
+
+		if _, err := p.expect(
+			lexer.TokenRightParen,
+			"expected ')' after expression",
+		); err != nil {
+			return nil, err
+		}
+
+		return expr, nil
 	}
+
+	return nil, p.errorAt(
+		token,
+		fmt.Sprintf(
+			"expected expression, got %q",
+			token.Lexeme,
+		),
+	)
 }
 
 func (p *Parser) expect(

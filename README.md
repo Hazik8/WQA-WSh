@@ -6,16 +6,16 @@
 
 ## Versions
 
-* **WQA:** 1.1.0
+* **WQA:** 1.2.0
 * **WSh:** 1.0.0
 * **Runtime:** WQBC
 * **Architectures:** x86_64, arm64
 
 ---
 
-# WQA 1.1.0
+# WQA 1.2.0
 
-WQA 1.1.0 expands the core language with:
+WQA 1.2.0 expands the core language with:
 
 * Variables with `wet`
 * Output with `print`
@@ -200,6 +200,29 @@ Current time:
 Current date:
 18.09.2026
 ```
+
+WQA 1.2.0 introduces expression-based arithmetic.
+
+Supported operators:
+
++   addition
+-   subtraction
+*   multiplication
+/   normal division
+//  floor division
+%   remainder
+
+Parentheses are supported:
+
+wet x = (10 + 5) * 2
+
+Unary minus is supported:
+
+wet x = -25
+
+Decimal numbers are supported:
+
+wet x = 5.5 * 2
 
 ---
 
@@ -391,7 +414,7 @@ WQA/
 
 WQA and WSh are actively developed as part of the WinDroid ecosystem.
 
-**Current WQA version: 1.1.0**
+**Current WQA version: 1.2.0**
 
 **Current WSh version: 1.0.0**
 

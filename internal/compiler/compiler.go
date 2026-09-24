@@ -324,19 +324,12 @@ func (c *Compiler) compileExpression(
 		)
 
 	case parser.NumberExpression:
-
-		number := value.Token.Lexeme
-
-		if _, err := strconv.Atoi(number); err != nil {
-			return fmt.Errorf(
-				"invalid number: %s",
-				number,
-			)
+		if _, err := strconv.ParseFloat(value.Token.Lexeme, 64); err != nil {
+			return fmt.Errorf("invalid number: %s", value.Token.Lexeme)
 		}
 
 		c.emitter.Emit(runtime.OP_PUSH)
-
-		c.emitter.EmitString(number)
+		c.emitter.EmitString(value.Token.Lexeme)
 
 	case parser.StringExpression:
 
@@ -345,6 +338,57 @@ func (c *Compiler) compileExpression(
 		c.emitter.EmitString(
 			value.Token.Lexeme,
 		)
+
+	case parser.BinaryExpression:
+		if err := c.compileExpression(value.Left); err != nil {
+			return err
+		}
+
+		if err := c.compileExpression(value.Right); err != nil {
+			return err
+		}
+
+		switch value.Operator {
+		case lexer.TokenPlus:
+			c.emitter.Emit(runtime.OP_ADD)
+
+		case lexer.TokenMinus:
+			c.emitter.Emit(runtime.OP_SUB)
+
+		case lexer.TokenStar:
+			c.emitter.Emit(runtime.OP_MUL)
+
+		case lexer.TokenSlash:
+			c.emitter.Emit(runtime.OP_DIV)
+
+		case lexer.TokenDoubleSlash:
+			c.emitter.Emit(runtime.OP_IDIV)
+
+		case lexer.TokenPercent:
+			c.emitter.Emit(runtime.OP_MOD)
+
+		default:
+			return fmt.Errorf(
+				"unknown expression operator: %v",
+				value.Operator,
+			)
+		}
+
+	case parser.UnaryExpression:
+		if err := c.compileExpression(value.Right); err != nil {
+			return err
+		}
+
+		switch value.Operator {
+		case lexer.TokenMinus:
+			c.emitter.Emit(runtime.OP_NEG)
+
+		default:
+			return fmt.Errorf(
+				"unknown unary operator: %v",
+				value.Operator,
+			)
+		}
 
 	default:
 

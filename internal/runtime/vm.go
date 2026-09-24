@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -17,572 +18,428 @@ type RepeatFrame struct {
 }
 
 type VM struct {
-	Code      []byte
-	IP        int
-	Variables map[string]interface{}
-	Stack     []interface{}
-
+	Code        []byte
+	IP          int
+	Variables   map[string]interface{}
+	Stack       []interface{}
 	RepeatStack []RepeatFrame
 	CallStack   []int
 }
 
-func New(code []byte) *VM {
+func NewVM(code []byte) *VM {
 	return &VM{
-		Code: code,
-		IP:   0,
-
-		Variables: make(map[string]interface{}),
-		Stack:     make([]interface{}, 0),
-
+		Code:        code,
+		Variables:   make(map[string]interface{}),
+		Stack:       make([]interface{}, 0),
 		RepeatStack: make([]RepeatFrame, 0),
 		CallStack:   make([]int, 0),
 	}
 }
 
-func (vm *VM) readString() (string, error) {
-
+func (vm *VM) readString() string {
 	if vm.IP+2 > len(vm.Code) {
-		return "", fmt.Errorf(
-			"unexpected end of bytecode while reading string length",
-		)
+		panic("invalid bytecode: missing string length")
 	}
 
-	length := int(
-		binary.BigEndian.Uint16(
-			vm.Code[vm.IP : vm.IP+2],
-		),
-	)
-
+	length := int(binary.BigEndian.Uint16(vm.Code[vm.IP:]))
 	vm.IP += 2
 
 	if vm.IP+length > len(vm.Code) {
-		return "", fmt.Errorf(
-			"unexpected end of bytecode while reading string",
-		)
+		panic("invalid bytecode: string exceeds code size")
 	}
 
-	text := string(
-		vm.Code[vm.IP : vm.IP+length],
-	)
-
+	value := string(vm.Code[vm.IP : vm.IP+length])
 	vm.IP += length
 
-	return text, nil
+	return value
 }
 
 func (vm *VM) push(value interface{}) {
-	vm.Stack = append(
-		vm.Stack,
-		value,
-	)
+	vm.Stack = append(vm.Stack, value)
 }
 
 func (vm *VM) pop() (interface{}, error) {
-
 	if len(vm.Stack) == 0 {
-		return nil, fmt.Errorf(
-			"stack underflow",
-		)
+		return nil, fmt.Errorf("stack underflow")
 	}
 
-	index := len(vm.Stack) - 1
-
-	value := vm.Stack[index]
-
-	vm.Stack = vm.Stack[:index]
+	last := len(vm.Stack) - 1
+	value := vm.Stack[last]
+	vm.Stack = vm.Stack[:last]
 
 	return value, nil
 }
 
-func (vm *VM) getNumber(value interface{}) (int, error) {
-
+func getNumber(value interface{}) (float64, error) {
 	switch v := value.(type) {
-
 	case int:
+		return float64(v), nil
+	case int8:
+		return float64(v), nil
+	case int16:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case uint:
+		return float64(v), nil
+	case uint8:
+		return float64(v), nil
+	case uint16:
+		return float64(v), nil
+	case uint32:
+		return float64(v), nil
+	case uint64:
+		return float64(v), nil
+	case float32:
+		return float64(v), nil
+	case float64:
 		return v, nil
-
 	case string:
-		number, err := strconv.Atoi(v)
-
+		n, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
 		if err != nil {
-			return 0, fmt.Errorf(
-				"%q is not a number",
-				v,
-			)
+			return 0, fmt.Errorf("not a number: %v", value)
 		}
-
-		return number, nil
-
+		return n, nil
 	default:
-		return 0, fmt.Errorf(
-			"value %v is not a number",
-			value,
-		)
+		return 0, fmt.Errorf("not a number: %v", value)
 	}
 }
 
+func normalizeNumber(value float64) interface{} {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return value
+	}
+
+	if value == math.Trunc(value) &&
+		value >= float64(int(^uint(0)>>1)*-1) &&
+		value <= float64(int(^uint(0)>>1)) {
+		return int(value)
+	}
+
+	return value
+}
+
 func (vm *VM) Run() {
-
 	for vm.IP < len(vm.Code) {
-
 		op := vm.Code[vm.IP]
 		vm.IP++
 
 		switch op {
-
-		case OP_TIME:
-			now := time.Now()
-			fmt.Printf("%02d:%02d:%02d\n", now.Hour(), now.Minute(), now.Second())
-
-		case OP_DATE:
-			now := time.Now()
-			fmt.Printf("%02d.%02d.%04d\n", now.Day(), now.Month(), now.Year())
-
 		case OP_PUSH:
+			value := vm.readString()
 
-			value, err := vm.readString()
-
-			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
-				return
-			}
-
-			if number, err := strconv.Atoi(value); err == nil {
-				vm.push(number)
+			if number, err := strconv.ParseFloat(value, 64); err == nil {
+				vm.push(normalizeNumber(number))
 			} else {
 				vm.push(value)
 			}
 
-		case OP_REPEAT:
-
-			countValue, err := vm.pop()
-
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			count, err := vm.getNumber(countValue)
-
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			exitAddress, err := vm.readUint32()
-
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			// repeat 0 ничего не выполняет.
-			if count <= 0 {
-				vm.IP = int(exitAddress)
-				continue
-			}
-
-			// После OP_REPEAT идут 4 байта адреса выхода,
-			// поэтому это и есть начало тела repeat.
-			bodyStart := vm.IP
-
-			vm.RepeatStack = append(
-				vm.RepeatStack,
-				RepeatFrame{
-					Remaining: count,
-					BodyStart: bodyStart,
-					Exit:      int(exitAddress),
-				},
-			)
-
-		case OP_LOOP:
-
-			operator, err := vm.readString()
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			exitAddress, err := vm.readUint32()
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			right, err := vm.pop()
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			left, err := vm.pop()
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			l, err := vm.getNumber(left)
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			r, err := vm.getNumber(right)
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			result := false
-
-			switch operator {
-
-			case ">":
-				result = l > r
-
-			case "<":
-				result = l < r
-
-			case "==":
-				result = l == r
-
-			default:
-				fmt.Printf(
-					"Runtime error: unknown loop operator %q\n",
-					operator,
-				)
-				return
-			}
-
-			if !result {
-				vm.IP = int(exitAddress)
-			}
-
-		case OP_JUMP:
-
-			address, err := vm.readUint32()
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			vm.IP = int(address)
-
-		case OP_CALL:
-
-			address, err := vm.readUint32()
-
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			// IP уже указывает после адреса функции.
-			vm.CallStack = append(
-				vm.CallStack,
-				vm.IP,
-			)
-
-			vm.IP = int(address)
-
-		case OP_RET:
-
-			if len(vm.CallStack) == 0 {
-				fmt.Println("Runtime error: unexpected ret")
-				return
-			}
-
-			index := len(vm.CallStack) - 1
-
-			vm.IP = vm.CallStack[index]
-
-			vm.CallStack = vm.CallStack[:index]
-
-		case OP_INPUT:
-
-			name, err := vm.readString()
-
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			fmt.Print("> ")
-
-			reader := bufio.NewReader(os.Stdin)
-
-			value, err := reader.ReadString('\n')
-
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			vm.Variables[name] = strings.TrimRight(
-				value,
-				"\r\n",
-			)
-
-		case OP_CLEAR:
-
-			fmt.Print("\033[H\033[2J")
-
-		case OP_WAIT:
-
-			value, err := vm.pop()
-
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			seconds, err := vm.getNumber(value)
-
-			if err != nil {
-				fmt.Println("Runtime error:", err)
-				return
-			}
-
-			if seconds < 0 {
-				fmt.Println("Runtime error: wait duration cannot be negative")
-				return
-			}
-
-			time.Sleep(time.Duration(seconds) * time.Second)
-
-		case OP_PRINT:
-
-			value, err := vm.pop()
-
-			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
-				return
-			}
-
-			fmt.Println(value)
-
-		case OP_SET:
-
-			name, err := vm.readString()
-
-			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
-				return
-			}
-
-			value, err := vm.pop()
-
-			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
-				return
-			}
-
-			vm.Variables[name] = value
-
 		case OP_LOAD:
+			name := vm.readString()
 
-			name, err := vm.readString()
-
-			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
-				return
-			}
-
-			value, exists := vm.Variables[name]
-
-			if !exists {
-				fmt.Printf(
-					"Runtime error: undefined variable %q\n",
-					name,
-				)
+			value, ok := vm.Variables[name]
+			if !ok {
+				fmt.Printf("undefined variable: %s\n", name)
 				return
 			}
 
 			vm.push(value)
 
-		case OP_ADD:
+		case OP_SET:
+			name := vm.readString()
 
-			vm.binaryOperation(
-				func(a, b int) int {
-					return a + b
-				},
-			)
+			value, err := vm.pop()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			vm.Variables[name] = value
+
+		case OP_ADD:
+			if !vm.binaryOperation(func(a, b float64) float64 {
+				return a + b
+			}) {
+				return
+			}
 
 		case OP_SUB:
-
-			vm.binaryOperation(
-				func(a, b int) int {
-					return a - b
-				},
-			)
+			if !vm.binaryOperation(func(a, b float64) float64 {
+				return a - b
+			}) {
+				return
+			}
 
 		case OP_MUL:
-
-			vm.binaryOperation(
-				func(a, b int) int {
-					return a * b
-				},
-			)
+			if !vm.binaryOperation(func(a, b float64) float64 {
+				return a * b
+			}) {
+				return
+			}
 
 		case OP_DIV:
+			if len(vm.Stack) < 2 {
+				fmt.Println("stack underflow")
+				return
+			}
 
-			right, err := vm.pop()
+			rightValue, _ := vm.pop()
+			leftValue, _ := vm.pop()
 
+			right, err := getNumber(rightValue)
 			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
+				fmt.Println(err)
 				return
 			}
 
-			left, err := vm.pop()
-
+			left, err := getNumber(leftValue)
 			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
+				fmt.Println(err)
 				return
 			}
 
-			a, err := vm.getNumber(left)
+			if right == 0 {
+				fmt.Println("division by zero")
+				return
+			}
 
+			vm.push(normalizeNumber(left / right))
+
+		case OP_IDIV:
+			if len(vm.Stack) < 2 {
+				fmt.Println("stack underflow")
+				return
+			}
+
+			rightValue, _ := vm.pop()
+			leftValue, _ := vm.pop()
+
+			right, err := getNumber(rightValue)
 			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
+				fmt.Println(err)
 				return
 			}
 
-			b, err := vm.getNumber(right)
-
+			left, err := getNumber(leftValue)
 			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
+				fmt.Println(err)
 				return
 			}
 
-			if b == 0 {
-				fmt.Println(
-					"Runtime error: division by zero",
-				)
+			if right == 0 {
+				fmt.Println("division by zero")
 				return
 			}
 
-			vm.push(a / b)
+			vm.push(normalizeNumber(math.Floor(left / right)))
+
+		case OP_MOD:
+			if len(vm.Stack) < 2 {
+				fmt.Println("stack underflow")
+				return
+			}
+
+			rightValue, _ := vm.pop()
+			leftValue, _ := vm.pop()
+
+			right, err := getNumber(rightValue)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			left, err := getNumber(leftValue)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			if right == 0 {
+				fmt.Println("division by zero")
+				return
+			}
+
+			result := left - math.Floor(left/right)*right
+			vm.push(normalizeNumber(result))
+
+		case OP_NEG:
+			value, err := vm.pop()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			number, err := getNumber(value)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			vm.push(normalizeNumber(-number))
+
+		case OP_PRINT:
+			value, err := vm.pop()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			fmt.Println(value)
+
+		case OP_TIME:
+			now := time.Now()
+			fmt.Println(now.Format("15:04:05"))
+
+		case OP_DATE:
+			now := time.Now()
+			fmt.Println(now.Format("02.01.2006"))
+
+		case OP_INPUT:
+			name := vm.readString()
+
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("> ")
+
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			vm.Variables[name] = strings.TrimSpace(input)
+
+		case OP_CLEAR:
+			fmt.Print("\033[H\033[2J")
+
+		case OP_WAIT:
+			value, err := vm.pop()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			seconds, err := getNumber(value)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			if seconds < 0 {
+				fmt.Println("wait duration cannot be negative")
+				return
+			}
+
+			time.Sleep(time.Duration(seconds * float64(time.Second)))
 
 		case OP_IF:
+			operator := vm.readString()
 
-			operator, err := vm.readString()
-
+			rightValue, err := vm.pop()
 			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
+				fmt.Println(err)
 				return
 			}
 
-			right, err := vm.pop()
-
+			leftValue, err := vm.pop()
 			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
+				fmt.Println(err)
 				return
 			}
 
-			left, err := vm.pop()
-
+			left, err := getNumber(leftValue)
 			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
+				fmt.Println(err)
 				return
 			}
 
-			l, err := vm.getNumber(left)
-
+			right, err := getNumber(rightValue)
 			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
+				fmt.Println(err)
 				return
 			}
 
-			r, err := vm.getNumber(right)
-
-			if err != nil {
-				fmt.Println(
-					"Runtime error:",
-					err,
-				)
-				return
-			}
-
-			result := false
-
-			switch operator {
-
-			case ">":
-				result = l > r
-
-			case "<":
-				result = l < r
-
-			case "==":
-				result = l == r
-
-			default:
-				fmt.Printf(
-					"Runtime error: unknown comparison operator %q\n",
-					operator,
-				)
-				return
-			}
+			result := compare(left, right, operator)
 
 			if !result {
 				vm.skipToElseOrEndIf()
 			}
 
 		case OP_ELSE:
-
 			vm.skipToEndIf()
 
 		case OP_ENDIF:
 
-			continue
+		case OP_LOOP:
+			operator := vm.readString()
+			exit := int(binary.BigEndian.Uint32(vm.Code[vm.IP:]))
+			vm.IP += 4
 
-		case OP_ENDLOOP:
+			if len(vm.Stack) < 2 {
+				fmt.Println("stack underflow")
+				return
+			}
 
-			continue
+			rightValue, _ := vm.pop()
+			leftValue, _ := vm.pop()
+
+			left, err := getNumber(leftValue)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			right, err := getNumber(rightValue)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			if !compare(left, right, operator) {
+				vm.IP = exit
+			}
+
+		case OP_JUMP:
+			vm.IP = int(binary.BigEndian.Uint32(vm.Code[vm.IP:]))
+
+		case OP_REPEAT:
+			exit := int(binary.BigEndian.Uint32(vm.Code[vm.IP:]))
+			vm.IP += 4
+
+			value, err := vm.pop()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			count, err := getNumber(value)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			if count != math.Trunc(count) {
+				fmt.Println("repeat count must be an integer")
+				return
+			}
+
+			n := int(count)
+
+			if n <= 0 {
+				vm.IP = exit
+				continue
+			}
+
+			vm.RepeatStack = append(vm.RepeatStack, RepeatFrame{
+				Remaining: n,
+				BodyStart: vm.IP,
+				Exit:      exit,
+			})
 
 		case OP_ENDREPEAT:
-
 			if len(vm.RepeatStack) == 0 {
-				fmt.Println("Runtime error: unexpected endrepeat")
+				fmt.Println("repeat stack underflow")
 				return
 			}
 
@@ -597,180 +454,168 @@ func (vm *VM) Run() {
 				vm.RepeatStack = vm.RepeatStack[:index]
 			}
 
-		case OP_EXIT:
+		case OP_CALL:
+			address := int(binary.BigEndian.Uint32(vm.Code[vm.IP:]))
+			vm.IP += 4
 
+			vm.CallStack = append(vm.CallStack, vm.IP)
+			vm.IP = address
+
+		case OP_RET:
+			if len(vm.CallStack) == 0 {
+				return
+			}
+
+			index := len(vm.CallStack) - 1
+			vm.IP = vm.CallStack[index]
+			vm.CallStack = vm.CallStack[:index]
+
+		case OP_ENDLOOP:
+
+		case OP_EXIT:
 			return
 
 		default:
-
-			fmt.Printf(
-				"Runtime error: unknown opcode 0x%02X\n",
-				op,
-			)
-
+			fmt.Printf("unknown opcode: 0x%02X\n", op)
 			return
 		}
 	}
 }
 
-func (vm *VM) skipToElseOrEndIf() {
+func compare(left, right float64, operator string) bool {
+	switch operator {
+	case ">":
+		return left > right
+	case "<":
+		return left < right
+	case "==":
+		return left == right
+	case "!=":
+		return left != right
+	case ">=":
+		return left >= right
+	case "<=":
+		return left <= right
+	default:
+		return false
+	}
+}
 
+func (vm *VM) binaryOperation(operation func(float64, float64) float64) bool {
+	rightValue, err := vm.pop()
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	leftValue, err := vm.pop()
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	right, err := getNumber(rightValue)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	left, err := getNumber(leftValue)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	vm.push(normalizeNumber(operation(left, right)))
+	return true
+}
+
+func (vm *VM) skipToElseOrEndIf() {
 	depth := 0
 
 	for vm.IP < len(vm.Code) {
-
 		op := vm.Code[vm.IP]
 		vm.IP++
 
 		switch op {
-
 		case OP_IF:
-
 			depth++
-
-			if _, err := vm.readString(); err != nil {
-				return
-			}
-
-		case OP_ELSE:
-
-			if depth == 0 {
-				return
-			}
+			vm.skipInstructionOperands(op)
 
 		case OP_ENDIF:
+			if depth == 0 {
+				return
+			}
+			depth--
 
+		case OP_ELSE:
 			if depth == 0 {
 				return
 			}
 
-			depth--
-
 		default:
-
-			if !vm.skipInstructionOperands(op) {
-				return
-			}
+			vm.skipInstructionOperands(op)
 		}
 	}
 }
 
 func (vm *VM) skipToEndIf() {
-
 	depth := 0
 
 	for vm.IP < len(vm.Code) {
-
 		op := vm.Code[vm.IP]
 		vm.IP++
 
 		switch op {
-
 		case OP_IF:
-
 			depth++
-
-			if _, err := vm.readString(); err != nil {
-				return
-			}
+			vm.skipInstructionOperands(op)
 
 		case OP_ENDIF:
-
 			if depth == 0 {
 				return
 			}
-
 			depth--
 
 		default:
-
-			if !vm.skipInstructionOperands(op) {
-				return
-			}
+			vm.skipInstructionOperands(op)
 		}
 	}
 }
 
-func (vm *VM) skipInstructionOperands(op byte) bool {
-
+func (vm *VM) skipInstructionOperands(op byte) {
 	switch op {
-
 	case OP_PUSH,
 		OP_SET,
 		OP_LOAD,
 		OP_IF,
 		OP_INPUT:
 
-		_, err := vm.readString()
+		if vm.IP+2 > len(vm.Code) {
+			vm.IP = len(vm.Code)
+			return
+		}
 
-		return err == nil
+		length := int(binary.BigEndian.Uint16(vm.Code[vm.IP:]))
+		vm.IP += 2 + length
 
-	default:
-		return true
+	case OP_JUMP,
+		OP_CALL,
+		OP_REPEAT:
+		vm.IP += 4
+
+	case OP_LOOP:
+		if vm.IP+2 > len(vm.Code) {
+			vm.IP = len(vm.Code)
+			return
+		}
+
+		length := int(binary.BigEndian.Uint16(vm.Code[vm.IP:]))
+		vm.IP += 2 + length
+		vm.IP += 4
 	}
 }
 
-func (vm *VM) binaryOperation(
-	operation func(int, int) int,
-) {
-
-	right, err := vm.pop()
-
-	if err != nil {
-		fmt.Println(
-			"Runtime error:",
-			err,
-		)
-		return
-	}
-
-	left, err := vm.pop()
-
-	if err != nil {
-		fmt.Println(
-			"Runtime error:",
-			err,
-		)
-		return
-	}
-
-	a, err := vm.getNumber(left)
-
-	if err != nil {
-		fmt.Println(
-			"Runtime error:",
-			err,
-		)
-		return
-	}
-
-	b, err := vm.getNumber(right)
-
-	if err != nil {
-		fmt.Println(
-			"Runtime error:",
-			err,
-		)
-		return
-	}
-
-	vm.push(
-		operation(a, b),
-	)
-}
-
-func (vm *VM) readUint32() (uint32, error) {
-	if vm.IP+4 > len(vm.Code) {
-		return 0, fmt.Errorf(
-			"unexpected end of bytecode while reading address",
-		)
-	}
-
-	value := binary.BigEndian.Uint32(
-		vm.Code[vm.IP : vm.IP+4],
-	)
-
-	vm.IP += 4
-
-	return value, nil
+func New(code []byte) *VM {
+	return NewVM(code)
 }

@@ -1,9 +1,20 @@
 wqa
 
-print "Current time:"
-wtime
+wet a = 10
+wet b = 3
 
-print "Current date:"
-wdate
+wet x = (a + b) * 2
+wet y = 10 / 3
+wet z = 10 // 3
+wet r = 10 % 3
+wet n = -25
+wet f = 5.5 * 2
+
+print x
+print y
+print z
+print r
+print n
+print f
 
 wexit

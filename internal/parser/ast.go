@@ -158,3 +158,20 @@ type DateStatement struct{}
 
 func (DateStatement) node()      {}
 func (DateStatement) statement() {}
+
+type BinaryExpression struct {
+	Left     Expression
+	Operator lexer.TokenType
+	Right    Expression
+}
+
+func (BinaryExpression) node()       {}
+func (BinaryExpression) expression() {}
+
+type UnaryExpression struct {
+	Operator lexer.TokenType
+	Right    Expression
+}
+
+func (UnaryExpression) node()       {}
+func (UnaryExpression) expression() {}

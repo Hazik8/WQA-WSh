@@ -28,6 +28,10 @@ const (
 	OP_TIME byte = 0x17
 	OP_DATE byte = 0x18
 
+	OP_IDIV byte = 0x19
+	OP_MOD  byte = 0x1A
+	OP_NEG  byte = 0x1B
+
 	OP_INPUT byte = 0x14
 	OP_CLEAR byte = 0x15
 	OP_WAIT  byte = 0x16

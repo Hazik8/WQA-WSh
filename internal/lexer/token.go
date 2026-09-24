@@ -32,21 +32,30 @@ const (
 	TokenEndFunc TokenType = "ENDFUNC"
 
 	TokenCall TokenType = "CALL"
-
 	TokenGive TokenType = "GIVE"
 
 	TokenInput TokenType = "INPUT"
 	TokenClear TokenType = "CLEAR"
 	TokenWait  TokenType = "WAIT"
 	TokenExit  TokenType = "EXIT"
-
-	TokenTime TokenType = "TIME"
-	TokenDate TokenType = "DATE"
+	TokenTime  TokenType = "TIME"
+	TokenDate  TokenType = "DATE"
 
 	TokenEquals     TokenType = "="
 	TokenEqualEqual TokenType = "=="
-	TokenGreater    TokenType = ">"
-	TokenLess       TokenType = "<"
+	TokenNotEqual   TokenType = "!="
+
+	TokenGreater   TokenType = ">"
+	TokenGreaterEq TokenType = ">="
+	TokenLess      TokenType = "<"
+	TokenLessEq    TokenType = "<="
+
+	TokenPlus        TokenType = "+"
+	TokenMinus       TokenType = "-"
+	TokenStar        TokenType = "*"
+	TokenSlash       TokenType = "/"
+	TokenDoubleSlash TokenType = "//"
+	TokenPercent     TokenType = "%"
 
 	TokenLeftParen  TokenType = "("
 	TokenRightParen TokenType = ")"
@@ -61,12 +70,7 @@ type Token struct {
 	Column int
 }
 
-func NewToken(
-	tokenType TokenType,
-	lexeme string,
-	line int,
-	column int,
-) Token {
+func NewToken(tokenType TokenType, lexeme string, line int, column int) Token {
 	return Token{
 		Type:   tokenType,
 		Lexeme: lexeme,

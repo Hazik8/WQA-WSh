@@ -7,8 +7,7 @@ import (
 )
 
 type Lexer struct {
-	source string
-
+	source   string
 	position int
 	line     int
 	column   int
@@ -27,28 +26,19 @@ func (l *Lexer) Tokenize() ([]Token, error) {
 
 	for !l.isAtEnd() {
 		token, err := l.nextToken()
-
 		if err != nil {
 			return nil, err
-		}
-
-		if token.Type == TokenNewline {
-			tokens = append(tokens, token)
-			continue
 		}
 
 		tokens = append(tokens, token)
 	}
 
-	tokens = append(
-		tokens,
-		NewToken(
-			TokenEOF,
-			"",
-			l.line,
-			l.column,
-		),
-	)
+	tokens = append(tokens, NewToken(
+		TokenEOF,
+		"",
+		l.line,
+		l.column,
+	))
 
 	return tokens, nil
 }
@@ -57,28 +47,16 @@ func (l *Lexer) nextToken() (Token, error) {
 	l.skipSpaces()
 
 	if l.isAtEnd() {
-		return NewToken(
-			TokenEOF,
-			"",
-			l.line,
-			l.column,
-		), nil
+		return NewToken(TokenEOF, "", l.line, l.column), nil
 	}
 
 	startLine := l.line
 	startColumn := l.column
-
 	ch := l.peek()
 
 	if ch == '\n' {
 		l.advance()
-
-		return NewToken(
-			TokenNewline,
-			"\\n",
-			startLine,
-			startColumn,
-		), nil
+		return NewToken(TokenNewline, "\n", startLine, startColumn), nil
 	}
 
 	if ch == '\r' {
@@ -88,99 +66,100 @@ func (l *Lexer) nextToken() (Token, error) {
 			l.advance()
 		}
 
-		return NewToken(
-			TokenNewline,
-			"\\n",
-			startLine,
-			startColumn,
-		), nil
+		return NewToken(TokenNewline, "\n", startLine, startColumn), nil
 	}
 
 	if ch == '"' {
-		return l.readString(
-			startLine,
-			startColumn,
-		)
+		return l.readString(startLine, startColumn)
 	}
 
-	if ch == '=' {
+	switch ch {
+	case '=':
 		l.advance()
 
 		if l.peek() == '=' {
 			l.advance()
-
-			return NewToken(
-				TokenEqualEqual,
-				"==",
-				startLine,
-				startColumn,
-			), nil
+			return NewToken(TokenEqualEqual, "==", startLine, startColumn), nil
 		}
 
-		return NewToken(
-			TokenEquals,
-			"=",
-			startLine,
-			startColumn,
-		), nil
-	}
+		return NewToken(TokenEquals, "=", startLine, startColumn), nil
 
-	if ch == '>' {
+	case '+':
+		l.advance()
+		return NewToken(TokenPlus, "+", startLine, startColumn), nil
+
+	case '-':
+		l.advance()
+		return NewToken(TokenMinus, "-", startLine, startColumn), nil
+
+	case '*':
+		l.advance()
+		return NewToken(TokenStar, "*", startLine, startColumn), nil
+
+	case '/':
 		l.advance()
 
-		return NewToken(
-			TokenGreater,
-			">",
-			startLine,
-			startColumn,
-		), nil
-	}
+		if l.peek() == '/' {
+			l.advance()
+			return NewToken(TokenDoubleSlash, "//", startLine, startColumn), nil
+		}
 
-	if ch == '<' {
+		return NewToken(TokenSlash, "/", startLine, startColumn), nil
+
+	case '%':
+		l.advance()
+		return NewToken(TokenPercent, "%", startLine, startColumn), nil
+
+	case '>':
 		l.advance()
 
-		return NewToken(
-			TokenLess,
-			"<",
-			startLine,
-			startColumn,
-		), nil
-	}
+		if l.peek() == '=' {
+			l.advance()
+			return NewToken(TokenGreaterEq, ">=", startLine, startColumn), nil
+		}
 
-	if ch == '(' {
+		return NewToken(TokenGreater, ">", startLine, startColumn), nil
+
+	case '<':
 		l.advance()
 
-		return NewToken(
-			TokenLeftParen,
-			"(",
-			startLine,
-			startColumn,
-		), nil
-	}
+		if l.peek() == '=' {
+			l.advance()
+			return NewToken(TokenLessEq, "<=", startLine, startColumn), nil
+		}
 
-	if ch == ')' {
+		return NewToken(TokenLess, "<", startLine, startColumn), nil
+
+	case '!':
 		l.advance()
 
-		return NewToken(
-			TokenRightParen,
-			")",
+		if l.peek() == '=' {
+			l.advance()
+			return NewToken(TokenNotEqual, "!=", startLine, startColumn), nil
+		}
+
+		return Token{}, fmt.Errorf(
+			"lexer error at %d:%d: unexpected character %q",
 			startLine,
 			startColumn,
-		), nil
+			ch,
+		)
+
+	case '(':
+		l.advance()
+		return NewToken(TokenLeftParen, "(", startLine, startColumn), nil
+
+	case ')':
+		l.advance()
+		return NewToken(TokenRightParen, ")", startLine, startColumn), nil
 	}
 
 	if unicode.IsDigit(rune(ch)) {
-		return l.readNumber(
-			startLine,
-			startColumn,
-		), nil
+		return l.readNumber(startLine, startColumn), nil
 	}
 
 	if isIdentifierStart(ch) {
-		return l.readIdentifier(
-			startLine,
-			startColumn,
-		), nil
+		return l.readIdentifier(startLine, startColumn), nil
 	}
 
 	return Token{}, fmt.Errorf(
@@ -191,38 +170,25 @@ func (l *Lexer) nextToken() (Token, error) {
 	)
 }
 
-func (l *Lexer) readIdentifier(
-	line int,
-	column int,
-) Token {
+func (l *Lexer) readNumber(line, column int) Token {
 	start := l.position
+	dotSeen := false
 
-	for !l.isAtEnd() &&
-		isIdentifierPart(l.peek()) {
-		l.advance()
-	}
+	for !l.isAtEnd() {
+		ch := l.peek()
 
-	lexeme := l.source[start:l.position]
+		if ch >= '0' && ch <= '9' {
+			l.advance()
+			continue
+		}
 
-	tokenType := keywordToken(lexeme)
+		if ch == '.' && !dotSeen {
+			dotSeen = true
+			l.advance()
+			continue
+		}
 
-	return NewToken(
-		tokenType,
-		lexeme,
-		line,
-		column,
-	)
-}
-
-func (l *Lexer) readNumber(
-	line int,
-	column int,
-) Token {
-	start := l.position
-
-	for !l.isAtEnd() &&
-		unicode.IsDigit(rune(l.peek())) {
-		l.advance()
+		break
 	}
 
 	return NewToken(
@@ -233,10 +199,24 @@ func (l *Lexer) readNumber(
 	)
 }
 
-func (l *Lexer) readString(
-	line int,
-	column int,
-) (Token, error) {
+func (l *Lexer) readIdentifier(line, column int) Token {
+	start := l.position
+
+	for !l.isAtEnd() && isIdentifierPart(l.peek()) {
+		l.advance()
+	}
+
+	lexeme := l.source[start:l.position]
+
+	return NewToken(
+		keywordToken(lexeme),
+		lexeme,
+		line,
+		column,
+	)
+}
+
+func (l *Lexer) readString(line, column int) (Token, error) {
 	l.advance()
 
 	var builder strings.Builder
@@ -276,76 +256,59 @@ func (l *Lexer) readString(
 
 func keywordToken(value string) TokenType {
 	switch strings.ToLower(value) {
-
 	case "wqa":
 		return TokenWQA
-
 	case "wet":
 		return TokenSet
-
 	case "print":
 		return TokenPrint
 
 	case "add":
 		return TokenAdd
-
 	case "sub":
 		return TokenSub
-
 	case "mul":
 		return TokenMul
-
 	case "div":
 		return TokenDiv
 
 	case "wif":
 		return TokenIf
-
 	case "else":
 		return TokenElse
-
 	case "endwif":
 		return TokenEndIf
 
 	case "wloop":
 		return TokenLoop
-
 	case "endloop":
 		return TokenEndLoop
 
 	case "repeat":
 		return TokenRepeat
-
 	case "endrepeat":
 		return TokenEndRepeat
 
 	case "wfunc":
 		return TokenFunc
-
 	case "endfunc":
 		return TokenEndFunc
 
 	case "call":
 		return TokenCall
-
 	case "give":
 		return TokenGive
 
 	case "winput":
 		return TokenInput
-
 	case "wtime":
 		return TokenTime
-
 	case "wdate":
 		return TokenDate
-
 	case "wclear":
 		return TokenClear
-
 	case "wait":
 		return TokenWait
-
 	case "wexit":
 		return TokenExit
 
@@ -355,8 +318,7 @@ func keywordToken(value string) TokenType {
 }
 
 func isIdentifierStart(ch byte) bool {
-	return unicode.IsLetter(rune(ch)) ||
-		ch == '_'
+	return unicode.IsLetter(rune(ch)) || ch == '_'
 }
 
 func isIdentifierPart(ch byte) bool {
@@ -370,7 +332,6 @@ func (l *Lexer) skipSpaces() {
 		switch l.peek() {
 		case ' ', '\t':
 			l.advance()
-
 		default:
 			return
 		}
@@ -383,7 +344,6 @@ func (l *Lexer) advance() byte {
 	}
 
 	ch := l.source[l.position]
-
 	l.position++
 
 	if ch == '\n' {
