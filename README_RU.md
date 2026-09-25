@@ -304,7 +304,7 @@ list
 
 Основной документ:
 
-[WQA_LANGUAGE.md](https://github.com/Hazik8/WQA-WSh-Docs/WQA_LANGUAGE.md)
+[WQA_LANGUAGE.md](https://github.com/Hazik8/WQA-WSh-Docs/WQA_LANGUAGE_RU.md)
 
 ---
 
