@@ -9,7 +9,7 @@ echo       WinDroid WQA + WSh Updater
 echo ========================================
 echo.
 
-cd /d C:\WQA
+cd /d C:\WQA-WSh
 go fmt ./...
 
 if not exist "go.mod" (

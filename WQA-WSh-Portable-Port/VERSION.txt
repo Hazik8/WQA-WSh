@@ -1,0 +1,3 @@
+WQA-WSh Portable Build Kit
+Target source: Hazik8/WQA-WSh main
+Prepared: 2026-10-02
