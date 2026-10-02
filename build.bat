@@ -13,7 +13,7 @@ cd /d C:\WQA-WSh
 go fmt ./...
 
 if not exist "go.mod" (
-    echo [ERROR] C:\WQA\go.mod not found.
+    echo [ERROR] C:\WQA-WSh\go.mod not found.
     pause
     exit /b 1
 )
@@ -32,8 +32,8 @@ echo.
 
 echo [2/7] Preparing WSh icon...
 
-if not exist "C:\WQA\wsh.ico" (
-    echo [ERROR] C:\WQA\wsh.ico not found.
+if not exist "C:\WQA-WSh\wsh.ico" (
+    echo [ERROR] C:\WQA-WSh\wsh.ico not found.
     pause
     exit /b 1
 )
@@ -52,7 +52,7 @@ if errorlevel 1 (
     )
 )
 
-rsrc -ico "C:\WQA\wsh.ico" -o "C:\WQA\cmd\wsh\wsh.syso"
+rsrc -ico "C:\WQA-WSh\wsh.ico" -o "C:\WQA-WSh\cmd\wsh\wsh.syso"
 
 if errorlevel 1 (
     echo [ERROR] Failed to create wsh.syso.
@@ -85,7 +85,7 @@ echo.
 
 echo [5/7] Installing WQA...
 
-copy /Y "C:\WQA\wqa.exe" "C:\WinDroid\Tools\wqa.exe" >nul
+copy /Y "C:\WQA-WSh\wqa.exe" "C:\WinDroid\Tools\wqa.exe" >nul
 
 if errorlevel 1 (
     echo [ERROR] Failed to install WQA to Tools.
@@ -93,7 +93,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-copy /Y "C:\WQA\wqa.exe" "C:\WinDroid\Bin\wqa.exe" >nul
+copy /Y "C:\WQA-WSh\wqa.exe" "C:\WinDroid\Bin\wqa.exe" >nul
 
 if errorlevel 1 (
     echo [ERROR] Failed to install WQA to Bin.
@@ -106,7 +106,7 @@ echo.
 
 echo [6/7] Installing WSh...
 
-copy /Y "C:\WQA\wsh.exe" "C:\WinDroid\Tools\wsh.exe" >nul
+copy /Y "C:\WQA-WSh\wsh.exe" "C:\WinDroid\Tools\wsh.exe" >nul
 
 if errorlevel 1 (
     echo [ERROR] Failed to install WSh to Tools.
@@ -114,7 +114,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-copy /Y "C:\WQA\wsh.exe" "C:\WinDroid\Bin\wsh.exe" >nul
+copy /Y "C:\WQA-WSh\wsh.exe" "C:\WinDroid\Bin\wsh.exe" >nul
 
 if errorlevel 1 (
     echo [ERROR] Failed to install WSh to Bin.
